@@ -12,6 +12,7 @@ build:
         - cd ../devices && make
         - cd ../threads && make
         - cd ..
+
 testsuite:
     stage: test
     only:
