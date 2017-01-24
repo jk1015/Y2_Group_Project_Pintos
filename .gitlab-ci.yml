@@ -18,5 +18,9 @@ testsuite:
     only:
         - master
     script:
-        - cd devices/build/
+        - cd src/utils && make
+        - export PATH=".:$PATH"
+        - cd ../devices && make
+        - cd ../threads && make
+        - cd ../devices/build/
         - make check
