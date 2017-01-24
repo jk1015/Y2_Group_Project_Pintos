@@ -1,5 +1,5 @@
 before_script:
-    - apt-get install -y qemu
+    - apt-get update && apt-get install -y qemu
 
 stages:
     - build
@@ -11,7 +11,6 @@ build:
         - master
     script:
         - cd src/utils && make
-        - export PATH=".:$PATH"
         - cd ../devices && make
         - cd ../threads && make
         - cd ..
