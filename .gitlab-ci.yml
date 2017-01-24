@@ -18,9 +18,9 @@ testsuite:
     only:
         - master
     script:
+        - sudo apt-get install -y qemu
         - cd src/utils && make
-        - export PATH=".:$PATH"
+        - export PATH=$(pwd):$PATH
         - cd ../devices && make
-        - cd ../threads && make
         - cd ../devices/build/
         - make check
