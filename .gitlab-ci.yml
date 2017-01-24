@@ -1,5 +1,6 @@
 stages:
     - build
+    - test
 
 build:
     stage: build
@@ -7,3 +8,14 @@ build:
         - master
     script:
         - cd src/utils && make
+        - export PATH=".:$PATH"
+        - cd ../devices && make
+        - cd ../threads && make
+        - cd ..
+testsuite:
+    stage: test
+    only:
+        - master
+    script:
+        - cd devices/build/
+        - make check
