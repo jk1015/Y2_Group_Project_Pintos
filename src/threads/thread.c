@@ -517,9 +517,12 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_remove(list_max(
-          &ready_list, &thread_priority_less_func, NULL)), struct thread, elem);
+  else {
+    struct list_elem *max =
+      list_max(&ready_list, &thread_priority_less_func, NULL);
+    list_remove(max);
+    return list_entry (max, struct thread, elem);
+  }
 }
 
 /* Compares priorities of Thread list_elems */
