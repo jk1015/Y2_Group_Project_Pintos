@@ -1,0 +1,27 @@
+before_script:
+    - apt-get update && apt-get install -y qemu
+
+stages:
+    - build
+    - test
+
+build:
+    stage: build
+    only:
+        - master
+    script:
+        - cd src/utils && make
+        - cd ../devices && make
+        - cd ../threads && make
+        - cd ..
+
+testsuite:
+    stage: test
+    only:
+        - master
+    script:
+        - cd src/utils && make
+        - export PATH=$(pwd):$PATH
+        - cd ../devices && make
+        - cd ../devices/build/
+        - make check
