@@ -54,6 +54,10 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 
+/* If true a thread will yield (and set to false) when it reenables interupts.
+   Used to avoid preemption by thread_unblock when interrupts are disabled */
+bool yield_on_intr_enable;
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -261,7 +265,15 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   bool yield = add_to_ready_list(t);
   intr_set_level (old_level);
-  if(yield) thread_yield();
+
+  if(yield) {
+    if(intr_get_level() == INTR_ON) {
+      thread_yield();
+    } else {
+      yield_on_intr_enable = true;
+    }
+  }
+
 }
 
 /* Returns the name of the running thread. */
