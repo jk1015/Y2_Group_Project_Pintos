@@ -32,6 +32,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+void increase_lock_priority(struct lock* lock, int priority);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -181,6 +183,7 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
+  lock->priority = PRI_MIN;
   sema_init (&lock->semaphore, 1);
 }
 
@@ -199,7 +202,24 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread* cur = thread_current();
+
+  increase_lock_priority(lock, cur->priority);
+
+  cur->waiting_on = lock;
+
   sema_down (&lock->semaphore);
+
+  cur->waiting_on = NULL;
+  struct lock_elem elem;
+  elem.lock = lock;
+  list_push_back(&cur->acquired_locks, &elem.elem);
+
+  lock->priority = list_entry (
+    list_max(&lock->semaphore.waiters, &thread_priority_less_func, NULL),
+    struct thread,
+    elem)->priority;
+
   lock->holder = thread_current ();
 }
 
@@ -248,7 +268,22 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
+void
+increase_lock_priority(struct lock* lock, int priority) {
+  if(lock->priority < priority) {
+    lock->priority = priority;
+    if (lock->holder->priority < priority) {
+      lock->holder->priority = priority;
+      struct lock *nested_lock = lock->holder->waiting_on;
+      if(nested_lock != NULL) {
+        increase_lock_priority(nested_lock, priority);
+      }
+    }
+  }
+}
+
+
 /* One semaphore in a list. */
 struct semaphore_elem
   {
