@@ -185,6 +185,7 @@ lock_init (struct lock *lock)
   lock->holder = NULL;
   lock->priority = PRI_MIN;
   sema_init (&lock->semaphore, 1);
+  sema_init (&lock->access_sema, 1);
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -203,13 +204,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   struct thread* cur = thread_current();
+  struct semaphore* access_sema = &lock->access_sema;
 
+  sema_down(access_sema);
   increase_lock_priority(lock, cur->priority);
 
   cur->waiting_on = lock;
+  sema_up(access_sema);
 
   sema_down (&lock->semaphore);
 
+  sema_down(access_sema);
   cur->waiting_on = NULL;
   struct lock_elem elem;
   elem.lock = lock;
@@ -221,6 +226,7 @@ lock_acquire (struct lock *lock)
     elem)->priority;
 
   lock->holder = thread_current ();
+  sema_up(access_sema);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
