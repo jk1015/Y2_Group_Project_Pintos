@@ -291,8 +291,7 @@ lock_release (struct lock *lock)
       struct lock* acquired_lock = locke->lock;
       if (acquired_lock == lock) {
         list_remove(e);
-      } else {
-        if (temp_priority < acquired_lock->priority)
+      } else if (temp_priority < acquired_lock->priority) {
           temp_priority = acquired_lock->priority;
       }
     }
@@ -327,7 +326,7 @@ void
 increase_lock_priority(struct lock* lock, int priority) {
   if(lock->priority < priority) {
     lock->priority = priority;
-    if (lock->holder->priority < priority) {
+    if (lock->holder != NULL && lock->holder->priority < priority) {
       lock->holder->priority = priority;
       struct lock *nested_lock = lock->holder->waiting_on;
       if(nested_lock != NULL) {
