@@ -412,8 +412,9 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, 100);
+  int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
+  return rounded_cpu;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
