@@ -1,5 +1,4 @@
 #include "threads/thread.h"
-#include "threads/fixedpoint.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -63,6 +62,8 @@ bool yield_on_intr_enable;
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+static fixed_point_t load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -402,8 +403,9 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  fixed_point_t current_load_avg = mult_f(load_avg, 100);
+  int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
+  return rounded_load_avg;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */

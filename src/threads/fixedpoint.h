@@ -1,7 +1,7 @@
 #ifndef FIXED_POINT_H
 #define FIXED_POINT_H
 
-typedef int fixed_point;
+typedef int fixed_point_t;
 #define BINARY_POINT 14
 #define SHIFT (1 << BINARY_POINT)
 
