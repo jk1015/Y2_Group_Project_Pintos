@@ -365,15 +365,32 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to NEW. */
 void
 thread_set_priority (int new_priority)
 {
-  bool decrease = thread_current()->priority >= new_priority;
-  thread_current()->base_priority = new_priority;
-  thread_current()->priority = new_priority;
-  if(decrease)
+  struct thread *cur = thread_current();
+
+  int old_priority = cur->priority;
+  cur->base_priority = new_priority;
+  cur->priority = new_priority;
+
+  struct list_elem* current_elem;
+
+
+  for (current_elem = list_begin (&cur->acquired_locks);
+       current_elem != list_end (&cur->acquired_locks);
+       current_elem = list_next (current_elem))
+    {
+      struct lock* acquired_lock = list_entry (current_elem, struct lock, elem);
+      if (cur->priority < acquired_lock->priority) {
+          cur->priority = acquired_lock->priority;
+      }
+    }
+
+  if(old_priority > cur->priority) {
     thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */

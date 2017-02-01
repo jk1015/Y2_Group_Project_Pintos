@@ -31,6 +31,7 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/malloc.h"
 
 void increase_lock_priority(struct lock* lock, int priority);
 
@@ -230,9 +231,8 @@ lock_acquire (struct lock *lock)
 
   sema_down(access_sema);
   cur->waiting_on = NULL;
-  struct lock_elem elem;
-  elem.lock = lock;
-  list_push_back(&cur->acquired_locks, &elem.elem);
+
+  list_push_back(&cur->acquired_locks, &lock->elem);
 
   if(list_empty(&lock->semaphore.waiters)) {
     lock->priority = PRI_MIN;
@@ -284,13 +284,15 @@ lock_release (struct lock *lock)
   struct list* lock_list = &cur->acquired_locks;
   int temp_priority = cur->base_priority;
 
-  for (struct list_elem* e = list_begin (lock_list); e != list_end (lock_list);
-       e = list_next (e))
+  struct list_elem* current_elem;
+
+  for (current_elem = list_begin (lock_list);
+       current_elem != list_end (lock_list);
+       current_elem = list_next (current_elem))
     {
-      struct lock_elem *locke = list_entry (e, struct lock_elem, elem);
-      struct lock* acquired_lock = locke->lock;
+      struct lock* acquired_lock = list_entry (current_elem, struct lock, elem);
       if (acquired_lock == lock) {
-        list_remove(e);
+        list_remove(current_elem);
       } else if (temp_priority < acquired_lock->priority) {
           temp_priority = acquired_lock->priority;
       }

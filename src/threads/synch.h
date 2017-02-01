@@ -25,6 +25,7 @@ struct lock
     struct semaphore access_sema; /* Prevents multiple threads accessing lock
                                      simultaneously, corrupting stuff. */
     int priority;                 /* Max priority of thread waiting for lock. */
+    struct list_elem elem;        /* List element */
   };
 
 void lock_init (struct lock *);
@@ -33,12 +34,6 @@ bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
 
-/* One lock in a list. */
-struct lock_elem
-  {
-    struct list_elem elem;              /* List element */
-    struct lock* lock;                  /* This lock. */
-  };
 
 /* Condition variable. */
 struct condition
