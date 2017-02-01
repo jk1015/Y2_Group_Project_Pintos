@@ -384,11 +384,32 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+void
+thread_update_priority(struct thread *t, void *aux UNUSED)
+{
+  fixed_point_t priority = convert_int_to_fp (PRI_MAX);
+  fixed_point_t recent_cpu = divide_f(t->recent_cpu, convert_int_to_fp(4));
+  priority -= recent_cpu;
+  priority -= convert_int_to_fp(t->nice * 2);
+  int priority_int = convert_fp_to_int_round_to_zero(priority);
+
+  if (priority_int > PRI_MAX)
+    priority_int = PRI_MAX;
+
+  if (priority_int < PRI_MIN)
+    priority_int = PRI_MIN;
+
+  t->priority = priority_int;
+}
+
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED)
 { //TODO: remove unused and finish implementation
   thread_current ()->nice = nice;
+  thread_update_priority(thread_current(), NULL);
+
+  /* yield if priority is less */
 }
 
 /* Returns the current thread's nice value. */
