@@ -64,7 +64,7 @@ bool yield_on_intr_enable;
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-static fixed_point_t load_avg = convert_int_to_fp(0);
+static fixed_point_t load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -77,8 +77,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-static void thread_update_priority (struct thread *t, void *aux UNUSED);
-static void recalculate_BSD (void);
+static void thread_update_bsd (struct thread *t, void *aux UNUSED);
+static void thread_yield_priority (void);
 
 /*.................*/
 static bool add_to_ready_list(struct thread *t);
@@ -106,6 +106,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  load_avg = convert_int_to_fp(0);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -149,32 +150,11 @@ thread_tick (void)
     kernel_ticks++;
 
   if (thread_mlfqs)
-    recalculate_BSD ();
+    bsd_recalculate();
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-}
-
-void
-recalculate_BSD(void)
-{
-  /* recalculating recent cpu and load avg */
-  if (timer_ticks () % TIMER_FREQ == 0)
-  {
-    thread_update_load_avg ();
-    thread_foreach(&thread_update_recent_cpu, NULL);
-  }
-
-  struct thread *t = thread_current ();
-
-  /* incrementing current threads recent cpu */
-  if (t != idle_thread)
-    t->recent_cpu = add_f(t->recent_cpu, 1);
-
-  /* recalculating priorities */
-  if (timer_ticks () % TIME_SLICE == 0)
-    thread_foreach(&thread_update_priority, NULL);
 }
 
 /* Prints thread statistics. */
@@ -246,6 +226,10 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  if (thread_mlfqs)
+    thread_update_bsd(t, NULL);
+
+  thread_yield_priority();
 
   return tid;
 }
@@ -398,6 +382,9 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
+  if (thread_mlfqs)
+    return;
+
   struct thread *cur = thread_current();
 
   int old_priority = cur->priority;
@@ -432,118 +419,6 @@ thread_get_priority (void)
   return priority;
 }
 
-
-
-void
-thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
-{
-  enum intr_level old_level = intr_disable();
-
-  fixed_point_t recent_cpu = t->recent_cpu;
-  fixed_point_t recent_cpu_2 = mult_f(load_avg, convert_int_to_fp(2));
-
-  recent_cpu = (add_f(mult_f(divide_f(recent_cpu_2, add_f(recent_cpu_2, 1)), recent_cpu), t->nice));
-
-  t->recent_cpu = recent_cpu;
-
-  intr_set_level (old_level);
-
-}
-
-void
-thread_update_priority (struct thread *t, void *aux UNUSED)
-{
-  enum intr_level old_level = intr_disable();
-
-  fixed_point_t priority = convert_int_to_fp (PRI_MAX);
-  fixed_point_t recent_cpu = divide_f(t->recent_cpu, convert_int_to_fp(4));
-  priority -= recent_cpu;
-  priority -= convert_int_to_fp(t->nice * 2);
-  int priority_int = convert_fp_to_int_round_to_zero(priority);
-
-  if (priority_int > PRI_MAX)
-    priority_int = PRI_MAX;
-
-  if (priority_int < PRI_MIN)
-    priority_int = PRI_MIN;
-
-  t->priority = priority_int;
-  intr_set_level (old_level);
-
-}
-
-/* Sets the current thread's nice value to NICE. */
-void
-thread_set_nice (int nice UNUSED)
-{
-  enum intr_level old_level = intr_disable();
-  thread_current ()->nice = nice;
-  thread_update_priority(thread_current(), NULL);
-  if (list_size(&ready_list) > 1)
-  {
-    thread_yield();
-  }
-  intr_set_level (old_level);
-}
-
-/* Returns the current thread's nice value. */
-int
-thread_get_nice (void)
-{
-  enum intr_level old_level = intr_disable();
-  int nice = thread_current ()->nice;
-  intr_set_level (old_level);
-
-  return nice;
-}
-
-/* Returns 100 times the system load average. */
-int
-thread_get_load_avg (void)
-{
-  enum intr_level old_level = intr_disable();
-
-  fixed_point_t current_load_avg = mult_f(load_avg, 100);
-  int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
-  intr_set_level (old_level);
-
-  return rounded_load_avg;
-}
-
-void
-thread_update_load_avg (void)
-{
-  enum intr_level old_level = intr_disable();
-
-  fixed_point_t load_avg_const = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
-  fixed_point_t ready_threads_const = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
-  int ready_threads = convert_int_to_fp(list_size(&ready_list));
-  if (thread_current () != idle_thread)
-    ready_threads++;
-
-  fixed_point_t ready_threads_fp = convert_int_to_fp(ready_threads);
-
-  fixed_point_t lhs = mult_f(load_avg_const, load_avg);
-  fixed_point_t rhs = mult_f(ready_threads_const, ready_threads_fp);
-
-  load_avg = lhs + rhs;
-
-  intr_set_level (old_level);
-}
-
-/* Returns 100 times the current thread's recent_cpu value. */
-int
-thread_get_recent_cpu (void)
-{
-  enum intr_level old_level = intr_disable();
-  
-  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, 100);
-  int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
-
-  intr_set_level (old_level);
-
-  return rounded_cpu;
-}
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -648,7 +523,7 @@ init_thread (struct thread *t, const char *name, int priority)
       t->recent_cpu = thread_current ()->recent_cpu;
 
       // Calculate priority
-      thread_update_priority(t, NULL);
+      thread_update_bsd(t, NULL);
     }
 
   }
@@ -691,6 +566,153 @@ next_thread_to_run (void)
     return list_entry (max, struct thread, elem);
   }
 }
+
+
+void
+thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
+{
+  enum intr_level old_level = intr_disable();
+
+  fixed_point_t recent_cpu = t->recent_cpu;
+  fixed_point_t recent_cpu_2 = mult_f(load_avg, convert_int_to_fp(2));
+
+  recent_cpu = (add_f(mult_f(divide_f(recent_cpu_2, add_f(recent_cpu_2, 1)), recent_cpu), t->nice));
+
+  t->recent_cpu = recent_cpu;
+
+  intr_set_level (old_level);
+
+}
+
+void
+thread_update_bsd (struct thread *t, void *aux UNUSED)
+{
+  enum intr_level old_level = intr_disable();
+
+  fixed_point_t priority = convert_int_to_fp (PRI_MAX);
+  fixed_point_t recent_cpu = divide_f(t->recent_cpu, convert_int_to_fp(4));
+  priority -= recent_cpu;
+  priority -= convert_int_to_fp(t->nice * 2);
+  int priority_int = convert_fp_to_int_round_to_nearest(priority);
+
+  if (priority_int > PRI_MAX)
+    priority_int = PRI_MAX;
+
+  if (priority_int < PRI_MIN)
+    priority_int = PRI_MIN;
+
+  t->priority = priority_int;
+  intr_set_level (old_level);
+
+}
+
+/* Sets the current thread's nice value to NICE. */
+void
+thread_set_nice (int nice UNUSED)
+{
+  enum intr_level old_level = intr_disable();
+  thread_current ()->nice = nice;
+  thread_update_bsd(thread_current(), NULL);
+  thread_yield_priority();
+  intr_set_level (old_level);
+}
+
+/* Returns the current thread's nice value. */
+int
+thread_get_nice (void)
+{
+  enum intr_level old_level = intr_disable();
+  int nice = thread_current ()->nice;
+  intr_set_level (old_level);
+
+  return nice;
+}
+
+/* Returns 100 times the system load average. */
+int
+thread_get_load_avg (void)
+{
+  enum intr_level old_level = intr_disable();
+
+  fixed_point_t current_load_avg = mult_f(load_avg, 100);
+  int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
+  intr_set_level (old_level);
+
+  return rounded_load_avg;
+}
+
+void
+thread_update_load_avg (void)
+{
+  enum intr_level old_level = intr_disable();
+
+  fixed_point_t load_avg_const = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
+  fixed_point_t ready_threads_const = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
+  int ready_threads = convert_int_to_fp(list_size(&ready_list));
+  if (thread_current () != idle_thread)
+    ready_threads++;
+
+  fixed_point_t ready_threads_fp = convert_int_to_fp(ready_threads);
+
+  fixed_point_t lhs = mult_f(load_avg_const, load_avg);
+  fixed_point_t rhs = mult_f(ready_threads_const, ready_threads_fp);
+
+  load_avg = lhs + rhs;
+
+  intr_set_level (old_level);
+}
+
+/* Returns 100 times the current thread's recent_cpu value. */
+int
+thread_get_recent_cpu (void)
+{
+  enum intr_level old_level = intr_disable();
+  
+  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, 100);
+  int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
+
+  intr_set_level (old_level);
+
+  return rounded_cpu;
+}
+
+void
+bsd_recalculate(void)
+{
+  enum intr_level old_level = intr_disable();
+  /* recalculating recent cpu and load avg */
+  if (timer_ticks () % TIMER_FREQ == 0)
+  {
+    thread_update_load_avg ();
+    thread_foreach(&thread_update_recent_cpu, NULL);
+  }
+
+  struct thread *t = thread_current ();
+
+
+  /* incrementing current threads recent cpu */
+  if (t != idle_thread)
+    t->recent_cpu = add_f(t->recent_cpu, 1);
+
+
+  /* recalculating priorities */
+  if (timer_ticks () % TIME_SLICE == 0)
+    thread_foreach(&thread_update_bsd, NULL);
+
+  intr_set_level (old_level);
+}
+
+void
+thread_yield_priority (void)
+{
+  struct list_elem *max = list_max(&ready_list, &thread_priority_less_func, NULL);
+  if (!list_empty(&ready_list) && thread_get_priority() <
+       list_entry (max, struct thread, elem)->priority)
+  {
+    thread_yield();
+  }
+}
+
 
 /* Compares priorities of Thread list_elems */
 bool thread_priority_less_func (
