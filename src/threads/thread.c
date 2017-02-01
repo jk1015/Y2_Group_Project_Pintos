@@ -169,7 +169,7 @@ recalculate_BSD(void)
   struct thread *t = thread_current ();
 
   /* incrementing current threads recent cpu */
-  if (*t != idle_thread)
+  if (t* != idle_thread)
     t->recent_cpu = add_f(t->recent_cpu, 1);
 
   /* recalculating priorities */
