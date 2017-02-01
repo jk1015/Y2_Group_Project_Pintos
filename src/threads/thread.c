@@ -384,8 +384,22 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+
+
 void
-thread_update_priority(struct thread *t, void *aux UNUSED)
+thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
+{
+  fixed_point_t recent_cpu = t->recent_cpu;
+  fixed_point_t current_load_avg = load_avg;
+  fixed_point_t recent_cpu_2 = mult_f(load_avg, convert_int_to_fp(2));
+
+  recent_cpu = (add_f(mult_f(divide_f(recent_cpu_2, add_f(recent_cpu_2, 1)), recent_cpu), t->nice));
+
+  t->recent_cpu = recent_cpu;
+}
+
+void
+thread_update_priority (struct thread *t, void *aux UNUSED)
 {
   fixed_point_t priority = convert_int_to_fp (PRI_MAX);
   fixed_point_t recent_cpu = divide_f(t->recent_cpu, convert_int_to_fp(4));
@@ -399,17 +413,15 @@ thread_update_priority(struct thread *t, void *aux UNUSED)
   if (priority_int < PRI_MIN)
     priority_int = PRI_MIN;
 
-  t->priority = priority_int;
+  thread_set_priority(priority_int);
 }
 
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED)
-{ //TODO: remove unused and finish implementation
+{
   thread_current ()->nice = nice;
   thread_update_priority(thread_current(), NULL);
-
-  /* yield if priority is less */
 }
 
 /* Returns the current thread's nice value. */
@@ -427,6 +439,9 @@ thread_get_load_avg (void)
   int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
   return rounded_load_avg;
 }
+
+void
+thread_update_load_avg (void)
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
