@@ -32,9 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-void increase_lock_priority(struct lock* lock, int priority);
+static void increase_lock_priority(struct lock* lock, int priority);
 /* Compares priorities of threads in semaphore_elems with singleton waiters */
-bool sema_elem_priority_less_func (
+static bool sema_elem_priority_less_func (
   const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* intr_level when lock_release disables interrupts (See lock_release) */
@@ -123,6 +123,8 @@ sema_up (struct semaphore *sema)
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
+
+  //Corrects for earlier disabling of interrupts in lock_release
 
   if (lock_release_flag) {
     old_level = lock_release_level;
@@ -220,20 +222,18 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   struct thread* cur = thread_current();
-  struct semaphore* access_sema = &lock->access_sema;
+  struct semaphore* lock_access = &lock->access_sema;
 
-  sema_down(access_sema);
   increase_lock_priority(lock, cur->priority);
 
   cur->waiting_on = lock;
-  sema_up(access_sema);
 
-  sema_down (&lock->semaphore);
+  sema_down(&lock->semaphore);
 
-  sema_down(access_sema);
   cur->waiting_on = NULL;
-
   list_push_back(&cur->acquired_locks, &lock->elem);
+
+  sema_down(lock_access);
 
   if(list_empty(&lock->semaphore.waiters)) {
     lock->priority = PRI_MIN;
@@ -245,7 +245,7 @@ lock_acquire (struct lock *lock)
   }
 
   lock->holder = thread_current ();
-  sema_up(access_sema);
+  sema_up(lock_access);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -265,6 +265,7 @@ lock_try_acquire (struct lock *lock)
   success = sema_try_down (&lock->semaphore);
   if (success)
     lock->holder = thread_current ();
+    list_push_back(&thread_current()->acquired_locks, &lock->elem);
   return success;
 }
 
@@ -299,13 +300,12 @@ lock_release (struct lock *lock)
       }
     }
 
-  /* If interrupts were enabled it is possible that the timer could interrupt
-     the current thread after the priority is decreased but before the
-     semaphore is upped. This would cause the current thread to yield and only
-     be rescheduled to up the semaphore when its new, lower, priority is highest
-     in ready_threads. This is the same problem priority donation attempts to
-     avoid.
-     */
+  /* If interrupts were enabled when the priority is lowered it is possible that
+     the timer could interrupt the current thread after the priority is
+     decreased but before the semaphore is upped. This would cause the current
+     thread to yield and only be rescheduled to up the semaphore when its new,
+     lower, priority is highest in ready_threads. This is the same problem
+     priority donation attempts to avoid, so we must disable interrupts. */
 
   lock_release_level = intr_disable();
   lock_release_flag = true;
@@ -327,16 +327,26 @@ lock_held_by_current_thread (const struct lock *lock)
 
 void
 increase_lock_priority(struct lock* lock, int priority) {
+
+  sema_down(&lock->access_sema);
+
   if(lock->priority < priority) {
+
     lock->priority = priority;
-    if (lock->holder != NULL && lock->holder->priority < priority) {
-      lock->holder->priority = priority;
-      struct lock *nested_lock = lock->holder->waiting_on;
+    struct thread *lock_holder = lock->holder;
+
+    if (lock_holder != NULL && lock_holder->priority < priority) {
+      lock_holder->priority = priority; //TODO Needs protection
+      struct lock *nested_lock = lock_holder->waiting_on;
+
       if(nested_lock != NULL) {
         increase_lock_priority(nested_lock, priority);
       }
     }
   }
+
+  sema_up(&lock->access_sema);
+
 }
 
 
