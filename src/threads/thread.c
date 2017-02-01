@@ -64,7 +64,7 @@ bool yield_on_intr_enable;
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-static fixed_point_t load_avg = 0;
+static fixed_point_t load_avg = convert_int_to_fp(0);
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -417,7 +417,6 @@ void
 thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
 {
   fixed_point_t recent_cpu = t->recent_cpu;
-  fixed_point_t current_load_avg = load_avg;
   fixed_point_t recent_cpu_2 = mult_f(load_avg, convert_int_to_fp(2));
 
   recent_cpu = (add_f(mult_f(divide_f(recent_cpu_2, add_f(recent_cpu_2, 1)), recent_cpu), t->nice));
@@ -581,7 +580,25 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->nice = NICE_DEFAULT;
-  t->recent_cpu = convert_int_to_fp(0); /* TODO: if child then set it to parents recent_cpu */
+  t->recent_cpu = convert_int_to_fp(0);
+
+  if (thread_mlfqs)
+  {
+    if(list_empty (&all_list))
+    {
+      // First thread
+      t->nice = 0;
+      t->priority = PRI_MAX; // Ignore given priority and use MAX
+    } else {
+      // Take nice and recent_cpu from parent thread
+      t->nice = thread_current ()->nice;
+      t->recent_cpu = thread_current ()->recent_cpu;
+
+      // Calculate priority
+      t->priority = thread_update_priority(t, NULL);
+    }
+
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
