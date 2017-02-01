@@ -587,7 +587,6 @@ init_thread (struct thread *t, const char *name, int priority)
     if(list_empty (&all_list))
     {
       // First thread
-      t->nice = 0;
       t->priority = PRI_MAX; // Ignore given priority and use MAX
     } else {
       // Take nice and recent_cpu from parent thread
@@ -595,7 +594,7 @@ init_thread (struct thread *t, const char *name, int priority)
       t->recent_cpu = thread_current ()->recent_cpu;
 
       // Calculate priority
-      t->priority = thread_update_priority(t, NULL);
+      thread_update_priority(t, NULL);
     }
 
   }
