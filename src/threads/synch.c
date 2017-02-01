@@ -31,10 +31,11 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/malloc.h"
 
 void increase_lock_priority(struct lock* lock, int priority);
-
+/* Compares priorities of threads in semaphore_elems with singleton waiters */
+bool sema_elem_priority_less_func (
+  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* intr_level when lock_release disables interrupts (See lock_release) */
 enum intr_level lock_release_level;
@@ -409,9 +410,15 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters))
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+  if (!list_empty (&cond->waiters)) {
+
+    struct list_elem *max =
+      list_max(&cond->waiters, &sema_elem_priority_less_func, NULL);
+      list_remove(max);
+
+
+    sema_up (&list_entry (max, struct semaphore_elem, elem)->semaphore);
+  }
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -428,4 +435,22 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+/* Compares priorities of threads in semaphore_elems with singleton waiters */
+bool sema_elem_priority_less_func (
+  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+
+  struct semaphore sema_a
+      = list_entry(a, struct semaphore_elem, elem)->semaphore;
+  struct semaphore sema_b
+      = list_entry(b, struct semaphore_elem, elem)->semaphore;
+
+  ASSERT(list_begin(&sema_a.waiters) == list_rbegin(&sema_a.waiters));
+  ASSERT(list_begin(&sema_b.waiters) == list_rbegin(&sema_b.waiters));
+
+
+  return thread_priority_less_func(list_begin(&sema_a.waiters),
+                                   list_begin(&sema_b.waiters), NULL);
 }
