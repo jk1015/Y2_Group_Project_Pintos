@@ -443,7 +443,18 @@ thread_get_load_avg (void)
 void
 thread_update_load_avg (void)
 {
-  
+  fixed_point_t load_avg_const = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
+  fixed_point_t ready_threads_const = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
+  int ready_threads = convert_int_to_fp(list_size(&ready_list));
+  if (thread_current () != idle_thread)
+    ready_threads++;
+
+  fixed_point_t ready_threads_fp = convert_int_to_fp(ready_threads);
+
+  fixed_point_t lhs = mult_f(load_avg_const, load_avg);
+  fixed_point_t rhs = mult_f(ready_threads_const, ready_threads_fp);
+
+  load_avg = lhs + rhs;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
