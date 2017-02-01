@@ -76,6 +76,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static void thread_update_priority (struct thread *t, void *aux UNUSED);
+static void recalculate_BSD (void);
 
 /*.................*/
 static bool add_to_ready_list(struct thread *t);
@@ -145,9 +147,33 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  if (thread_mlfqs)
+    recalculate_BSD ();
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+void
+recalculate_BSD(void)
+{
+  /* recalculating recent cpu and load avg */
+  if (timer_ticks () % TIMER_FREQ == 0)
+  {
+    thread_update_load_avg ();
+    thread_foreach(&thread_update_recent_cpu, NULL);
+  }
+
+  struct thread *t = thread_current ();
+
+  /* incrementing current threads recent cpu */
+  if (*t != idle_thread)
+    t->recent_cpu = add_f(t->recent_cpu, 1);
+
+  /* recalculating priorities */
+  if (timer_ticks () % TIME_SLICE == 0)
+    thread_foreach(&thread_update_priority, NULL);
 }
 
 /* Prints thread statistics. */
