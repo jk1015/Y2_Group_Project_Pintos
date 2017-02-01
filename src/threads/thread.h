@@ -25,6 +25,8 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+#define NICE_DEFAULT 0
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -95,7 +97,7 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     int nice;
-    fixed_point_t recent_cpu;
+    fixed_point_t recent_cpu; 
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

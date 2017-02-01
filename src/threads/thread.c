@@ -63,7 +63,7 @@ bool yield_on_intr_enable;
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-static fixed_point_t load_avg;
+static fixed_point_t load_avg = 0;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -553,6 +553,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->nice = NICE_DEFAULT;
+  t->recent_cpu = convert_int_to_fp(0); /* TODO: if child then set it to parents recent_cpu */
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
