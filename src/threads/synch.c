@@ -232,12 +232,12 @@ lock_acquire (struct lock *lock)
 
   sema_down(&lock->semaphore);
 
+  sema_down(lock_access);
+
   cur->waiting_on = NULL;
   list_push_back(&cur->acquired_locks, &lock->elem);
 
-  sema_down(lock_access);
-
-  if(list_empty(&lock->semaphore.waiters)) {
+    if(list_empty(&lock->semaphore.waiters)) {
     lock->priority = PRI_MIN;
   } else {
     lock->priority = list_entry (
@@ -286,7 +286,7 @@ lock_release (struct lock *lock)
 
   struct thread* cur = thread_current();
   struct list* lock_list = &cur->acquired_locks;
-  int temp_priority = cur->base_priority;
+  int temp_priority = PRI_MIN;
 
   struct list_elem* current_elem;
 
@@ -311,7 +311,10 @@ lock_release (struct lock *lock)
 
   lock_release_intr_level = intr_disable();
   lock_release_intr_flag = true;
-  cur->priority = temp_priority;
+  if(temp_priority > cur->base_priority)
+    cur->priority = temp_priority;
+  else
+    cur->priority = cur->base_priority;
   sema_up (&lock->semaphore);
 
 }
