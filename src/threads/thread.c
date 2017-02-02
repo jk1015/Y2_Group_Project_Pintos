@@ -226,8 +226,6 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if (thread_mlfqs)
-    thread_update_bsd(t, NULL);
 
   thread_yield_priority();
 
@@ -634,7 +632,7 @@ thread_get_load_avg (void)
 {
   enum intr_level old_level = intr_disable();
 
-  fixed_point_t current_load_avg = mult_f(load_avg, 100);
+  fixed_point_t current_load_avg = mult_f(load_avg, convert_int_to_fp(100));
   int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
   intr_set_level (old_level);
 
@@ -648,7 +646,7 @@ thread_update_load_avg (void)
 
   fixed_point_t load_avg_const = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
   fixed_point_t ready_threads_const = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
-  int ready_threads = convert_int_to_fp(list_size(&ready_list));
+  int ready_threads = list_size(&ready_list);
   if (thread_current () != idle_thread)
     ready_threads++;
 
@@ -668,7 +666,7 @@ thread_get_recent_cpu (void)
 {
   enum intr_level old_level = intr_disable();
   
-  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, 100);
+  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, convert_int_to_fp(100));
   int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
 
   intr_set_level (old_level);
@@ -701,11 +699,24 @@ bsd_recalculate(void)
 
   intr_set_level (old_level);
 }
+/* Compares priorities of Thread list_elems */
+bool thread_priority_great_func (
+  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread* thread_a = list_entry(a, struct thread, elem);
+  struct thread* thread_b = list_entry(b, struct thread, elem);
+  return thread_a->priority > thread_b->priority;
+}
 
 void
 thread_yield_priority (void)
 {
-  struct list_elem *max = list_max(&ready_list, &thread_priority_less_func, NULL);
+  struct list_elem *max;
+  if (thread_mlfqs)
+    max = list_max(&ready_list, &thread_priority_great_func, NULL);
+  else
+    max = list_max(&ready_list, &thread_priority_less_func, NULL);
+  
   if (!list_empty(&ready_list) && thread_get_priority() <
        list_entry (max, struct thread, elem)->priority)
   {
