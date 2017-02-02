@@ -81,6 +81,7 @@ static void thread_update_bsd (struct thread *t, void *aux UNUSED);
 static void thread_yield_priority (void);
 
 /*.................*/
+/* TODO: Comment */
 static bool add_to_ready_list(struct thread *t);
 bool thread_priority_less_func (
   const struct list_elem *a, const struct list_elem *b, void *aux);
@@ -377,13 +378,14 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW. */
-//TODO Synchronisation
 void
 thread_set_priority (int new_priority)
 {
   if (thread_mlfqs)
     return;
 
+  enum intr_level old_level;
+  old_level = intr_disable ();
   struct thread *cur = thread_current();
 
   int old_priority = cur->priority;
@@ -404,7 +406,10 @@ thread_set_priority (int new_priority)
     }
 
   if(old_priority > cur->priority) {
+    intr_set_level (old_level);
     thread_yield();
+  } else {
+    intr_set_level (old_level);
   }
 }
 
@@ -666,7 +671,7 @@ int
 thread_get_recent_cpu (void)
 {
   enum intr_level old_level = intr_disable();
-  
+
   fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, convert_int_to_fp(100));
   int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
 
@@ -717,7 +722,7 @@ thread_yield_priority (void)
     max = list_max(&ready_list, &thread_priority_great_func, NULL);
   else
     max = list_max(&ready_list, &thread_priority_less_func, NULL);
-  
+
   if (!list_empty(&ready_list) && thread_get_priority() <
        list_entry (max, struct thread, elem)->priority)
   {
