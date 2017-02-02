@@ -3,14 +3,15 @@
             |  TASK 1: SCHEDULING  |
             |    DESIGN DOCUMENT   |
             +----------------------+
-                   
+
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+James Knight        <email@domain.example>
+Max Smith           <email@domain.example>
+Inusha Hapuarachchi <email@domain.example>
+Paul Crestez        <email@domain.example>
 
 ---- PRELIMINARIES ----
 
@@ -26,28 +27,161 @@ FirstName LastName <email@domain.example>
 
 ---- DATA STRUCTURES ----
 
->> A1: (5 marks) 
+>> A1: (5 marks)
 >> Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
->> A2: (10 marks) 
+struct thread
+  {
+    ...
+    int base_priority;
+    Stores the priority a thread has ignoring all donations. Returned to when
+    there is no higher donation after releasing a lock.
+
+    struct lock* waiting_on;
+    The lock that the thread is currently attempting to acquire. Used in
+    increase_lock_priority to access lock for nested donation.
+
+    struct list acquired_locks;
+    Locks acquired by the thread. Upon releasing a lock it is removed and
+    priority is set to the max of base_priority and the acquired_locks
+    priorities.
+    ...
+  };
+
+struct lock
+  {
+    ...
+    struct semaphore access_sema;
+    Used to control access to members of the lock, preventing race conditions.
+
+    int priority;
+    Stores the maximum priority of any thread waiting on the lock. Donated to
+    current lock holder and nested locks if the holder's priority is lower.
+
+    struct list_elem elem;
+    Allows lock to be stored in a list. Used specifically for
+    thread.acquired_locks.
+
+  };
+
+static enum intr_level lock_release_intr_level; (synch.c)
+lock_release must disable interrupts before calling sema_up, this stores the
+intr_level prior to this so that sema_up can return to it before exiting.
+
+static bool lock_release_intr_flag; (synch.c)
+flag checked in sema_up to see if it was called from lock_release so it can
+properly reset intr_level.
+
+bool yield_on_intr_enable; (thread.c)
+Flag denoting the current thread should yield once interrupts are enabled.
+Set by thread_unblock to ensure highest priority thread runs without preempting
+the current thread.
+
+>> A2: (10 marks)
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
 
+//TODO Explain data structure
+
++-----------+
+|   Lock    |
+|-----------|   +-----------+
+|  holder   |---|  Thread   |
+|           |   |-----------|   +-----------+
+|priority=x1|   |waiting_on |---|   Lock    |
++-----------+   |           |   |-----------|                   +-----------+
+ |              |priority=x2|   |  holder   |----   ....    ----|Lock/Thread|
+ |              +-----------+   |           |                   |-----------|
+ |                              |priority=x3|                   |priority=xn|
+ |                              +-----------+                   +-----------+
+ |                                |
+ |    +--------------+            |
+ +--- | Lock |   P   |            |
+      | ------------ |----+       |
+      |donate(Lock,P)|    |       |
+      +--------------+    |       |   +--------------+         +--------------+
+                          |       +-- | Lock |   P   |         | Lock |   P   |
+                          |           | ------------ |         | ------------ |
+                          +---------- |donate(Lock,P)|---...---|donate(Lock,P)|
+                                      +--------------+         +--------------+
+
+                        x1, x2, ... , x(n-1) < P <= xn
+
+                                  --Result--
++-----------+
+|   Lock    |
+|-----------|   +-----------+
+|  holder   |---|  Thread   |
+|           |   |-----------|   +-----------+
+|priority=P |   |waiting_on |---|   Lock    |
++-----------+   |           |   |-----------|                   +-----------+
+                |priority=P |   |  holder   |----   ....    ----|Lock/Thread|
+                +-----------+   |           |                   |-----------|
+                                |priority=P |                   |priority=xn|
+                                +-----------+                   +-----------+
+
+
 ---- ALGORITHMS ----
 
->> A3: (5 marks) 
+>> A3: (5 marks)
 >> How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
+The behaviour of sema_up remains the same except the list_max is called on the
+semaphore's waiters to return the thread to be woken, rather than popping the
+front of the list. list_max uses an ordering function which causes it to return
+the thread with highest priority as its result, this thread is then removed from
+the list of waiters and sema_up continues to execute as usual.
+A lock contains a semaphore and relies on this to decide which thread will be
+woken, so changing the behaviour of sema_up does the same for locks.
+A condition variable contains a list of semaphores each semaphore having only
+one waiter. The behaviour of cond_signal is again mostly unchanged except that
+rather than popping the first semaphore from the list it instead uses a list_max
+which returns the semaphore containing the highest priority thread.
 
 >> A4: (5 marks)
 >> Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
+Any call to lock_acquire calls the donate priority function, this function takes
+two arguments the lock being acquired and the priority of the acquiring thread
+(referred to as PRI). Firstly the access_sema of the lock is downed to prevent
+simultaneous access of the members of the lock. For a donation to occur PRI must
+be higher than the current priority of the lock, the lock must be held and PRI
+must also be higher than the priority of the holder. If these conditions hold
+then the priority of the lock is updated to the new, higher, priority PRI and
+the priority of the lock holder is also updated to PRI. If the lock holder
+itself is waiting on another lock then a nested donation occurs, the
+donate_priority function is recursively called with the lock on which the holder
+is waiting and PRI as its arguments. Before a nested donation occurs the
+access_sema of the current lock is upped, this is because we will not be
+touching this lock during the recursive call.
+
 
 >> A5: (5 marks)
 >> Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+When lock_release is called the lock upon which it is called first has its
+holder set to NULL. Following this the function itterates through the
+acquired_locks of the calling thread, removing the released lock and finding the
+maximum priority value of the other locks. Before the priority of the thread is
+updated to this maximum value interrupts are disabled this is to prevent an
+interrupt causing a priority inversion by calling schedule after the priority is
+lowered but before the semaphore of the lock is upped, a flag is set to ensure
+the interrupt level is properly restored. The priority of the thread is then set
+to the max of its remaining locks or its base if it holds no locks. Finally the
+semaphore of the lock is upped and the higher priority thread is awoken.
+
+When the higher priority thread is scheduled it continues executing
+lock_acquire. Its waiting_on is set back to NULL, the list of waiters on the
+lock is then itterated through finding the priority of the highest priority
+thread still waiting on it and the priority of the lock is set to this value,
+this is guaranteed to be less than or equal to the priority of the currently
+running thread so no donations need occur. The holder of the lock is then
+updated to be the currently running thread.
+
+
+
 
 ---- SYNCHRONIZATION ----
 
@@ -55,12 +189,41 @@ FirstName LastName <email@domain.example>
 >> Describe a potential race in thread_set_priority() and explain
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
+thread_set_priority sets the priority of the current thread, thus the only
+possible race condition is that an interrupt occurs during the execution of
+thread_set_priority and during this interrupt thread_set_priority is also
+called, in this case the interrupt would be reading from and writing to elements
+of the current thread at an arbitrary point in thread_set_priority when the
+members of thread might be poorly formed. We cannot use a lock to deal with this
+race as interrupts are unable to acquire locks. Because of this the only method
+of avoiding a race is to disable interrupts for the duration of
+thread_set_priority;
+
+
 
 ---- RATIONALE ----
 
 >> A7: (5 marks)
 >> Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+When designing our solution the usage of space in the thread struct was a large
+concern as a thread is limited to a single 4kb page and so increasing the size
+of the struct limits the possible stack size. One design we considered was to
+construct an array of 64 lists each list containing locks of a different
+priority from 0-63, this would have been used in place of the current
+acquired_locks list, and would have given significatly faster access and times
+with the small complication of having to move a lock to a different list
+whenever its priority changed. Ultimately however we chose the simpler data
+structure of a single list, this is because the array suggested would have had
+size 64*sizeof(struct list) = 512B when using 4 Byte pointers, this is one
+eighth of the total size of a page, completely unwarranted for a single data
+structure. This also gives us additional scalability, if we wanted more
+granularity in the priority by adding additional priority levels our design
+could do so without increasing space usage, whereas the array method would
+require an additional 8 Bytes per level, giving a hard cap of 512 priority
+levels.
+
+//TODO Simplicity?
 
               ADVANCED SCHEDULER
               ==================
@@ -94,7 +257,7 @@ ticks   A   B   C   A   B   C   to run
 32
 36
 
->> B3: (5 marks) 
+>> B3: (5 marks)
 >> Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behaviour of your scheduler?
