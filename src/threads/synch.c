@@ -32,15 +32,17 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-static void increase_lock_priority(struct lock* lock, int priority);
+
+static void donate_priority(struct lock* lock, int priority);
+
 /* Compares priorities of threads in semaphore_elems with singleton waiters */
 static bool sema_elem_priority_less_func (
   const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* intr_level when lock_release disables interrupts (See lock_release) */
-enum intr_level lock_release_level;
+static enum intr_level lock_release_intr_level;
 /* Flag showing that lock_release disabled interrupts (See lock_release)*/
-bool lock_release_flag;
+static bool lock_release_intr_flag;
 
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
@@ -126,9 +128,9 @@ sema_up (struct semaphore *sema)
 
   //Corrects for earlier disabling of interrupts in lock_release
 
-  if (lock_release_flag) {
-    old_level = lock_release_level;
-    lock_release_flag = false;
+  if (lock_release_intr_flag) {
+    old_level = lock_release_intr_level;
+    lock_release_intr_flag = false;
   } else {
     old_level = intr_disable ();
   }
@@ -224,7 +226,7 @@ lock_acquire (struct lock *lock)
   struct thread* cur = thread_current();
   struct semaphore* lock_access = &lock->access_sema;
 
-  increase_lock_priority(lock, cur->priority);
+  donate_priority(lock, cur->priority);
 
   cur->waiting_on = lock;
 
@@ -307,8 +309,8 @@ lock_release (struct lock *lock)
      lower, priority is highest in ready_threads. This is the same problem
      priority donation attempts to avoid, so we must disable interrupts. */
 
-  lock_release_level = intr_disable();
-  lock_release_flag = true;
+  lock_release_intr_level = intr_disable();
+  lock_release_intr_flag = true;
   cur->priority = temp_priority;
   sema_up (&lock->semaphore);
 
@@ -325,27 +327,47 @@ lock_held_by_current_thread (const struct lock *lock)
   return lock->holder == thread_current ();
 }
 
+
+/* Implements nested priority donation.
+   Compares LOCK's priority to PRIORITY if PRIORITY is greater sets LOCK's
+   priority to PRIORITY. Then if LOCK's holders priority is also lower sets that
+   to priority. Finally if if the holder is waiting on another lock calls itself
+   recursively on that lock.  */
 void
-increase_lock_priority(struct lock* lock, int priority) {
+donate_priority(struct lock* lock, int priority)
+{
 
   sema_down(&lock->access_sema);
 
-  if(lock->priority < priority) {
+  if(lock->priority < priority)
+  {
 
     lock->priority = priority;
     struct thread *lock_holder = lock->holder;
 
-    if (lock_holder != NULL && lock_holder->priority < priority) {
+    if (lock_holder != NULL && lock_holder->priority < priority)
+    {
+
       lock_holder->priority = priority; //TODO Needs protection
       struct lock *nested_lock = lock_holder->waiting_on;
-
-      if(nested_lock != NULL) {
-        increase_lock_priority(nested_lock, priority);
+      sema_up(&lock->access_sema);
+      if (nested_lock != NULL)
+      {
+        donate_priority(nested_lock, priority);
       }
+
+    }
+    else
+    {
+      sema_up(&lock->access_sema);
     }
   }
+  else
+  {
+    sema_up(&lock->access_sema);
+  }
 
-  sema_up(&lock->access_sema);
+
 
 }
 
