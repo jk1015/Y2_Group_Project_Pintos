@@ -316,11 +316,11 @@ scheduler.
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
-The current running thread's priority only needed to be updated once 
+The currently running threads priority only needed to be updated once 
 every time slice (4 ticks) as it is the only thread that changes values 
 of recent_cpu.
 The priority, recent_cpu and load_avg is recalculated for all threads every 
-second. This is expensive and for a system with a large amount of threads may 
+second. This is expensive and, for a system with a large amount of threads, may 
 be an infeasible scheduling algorithm.
 
 
