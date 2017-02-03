@@ -344,5 +344,9 @@ be an infeasible scheduling algorithm.
 >> decide to implement it the way you did?  If you created an
 >> abstraction layer for fixed-point mathematics, that is, an abstract
 >> data type and/or a set of functions or macros to manipulate
->> fixed-point numbers, why did you do so?  If not, why not?S
-// TODO: Inusha
+>> fixed-point numbers, why did you do so?  If not, why not?
+The fixed point arithmetic was implemented soley by the use of macros.
+The reason for this is that macros do not have the overhead that function calls do.
+A typedef was used such that the user can distinguish between fixed points and ints which
+makes maintaining the code simpler. Macros were defined to do binary operations between
+fixed points and ints as well as converting from one to another.
