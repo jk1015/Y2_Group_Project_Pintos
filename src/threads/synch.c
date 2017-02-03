@@ -353,9 +353,20 @@ donate_priority (struct lock* lock, int pri)
     lock->priority = pri;
     struct thread *lock_holder = lock->holder;
 
+    /* There is a possible race condition here if the current thread is
+       interrupted and the lock holder is scheduled between checking
+       lock_holder->priority < pri and setting lock_holder->priority = pri;
+       the lock holder could call thread_set_priority and increase its priority
+       above pri. We cannot use a semaphore to prevent this as we make the
+       assumption that thread_set_priority can be called in an interrupt
+       context so we must disable interrupts. */
+
+    enum intr_level old_level = intr_disable ();
     if (lock_holder != NULL && lock_holder->priority < pri)
     {
       lock_holder->priority = pri;
+      intr_set_level (old_level);
+
       struct lock *nested_lock = lock_holder->waiting_on;
       sema_up (&lock->access_sema);
 
@@ -363,6 +374,7 @@ donate_priority (struct lock* lock, int pri)
         donate_priority (nested_lock, pri);
     }
     else
+      intr_set_level (old_level);
       sema_up (&lock->access_sema);
   }
   else
