@@ -186,7 +186,7 @@ recursive call.
 >> Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
 When lock_release is called the lock upon which it is called first has its
-holder set to NULL. Following this the function itterates through the
+holder set to NULL. Following this the function iterates through the
 acquired_locks of the calling thread, removing the released lock and finding the
 maximum priority value of the other locks. Before the priority of the thread is
 updated to this maximum value interrupts must be disabled, this is to prevent an
@@ -199,7 +199,7 @@ thread is awoken.
 
 When the higher priority thread is scheduled it continues executing
 lock_acquire, its waiting_on is set back to NULL and the list of waiters on the
-lock is itterated through to find the priority of the highest priority thread
+lock is iterated through to find the priority of the highest priority thread
 still waiting on it, the priority of the lock is set to this value. The new
 priority of the lock is guaranteed to be less than or equal to the priority of
 the currently running thread so no donations need occur. The holder of the lock
@@ -239,7 +239,7 @@ concern as a thread is limited to a single 4kb page and so increasing the size
 of the struct limits the possible stack size. One design we considered was to
 construct an array of 64 lists each list containing locks of a different
 priority from 0-63, this would have been used in place of the current
-acquired_locks list, and would have given significatly faster access times
+acquired_locks list, and would have given significantly faster access times
 with only the small complication of having to move a lock to a different list
 whenever its priority changed. Ultimately however we chose the simpler data
 structure of a single list, this is because the array suggested would have had
@@ -250,8 +250,7 @@ we wanted more granularity in the priority by adding additional priority levels
 our design could do so without increasing space usage, whereas the array method
 would require an additional 8 Bytes per level, giving a hard cap of 512 priority
 levels.
-
-//TODO Simplicity?
+//TODO Simplicity
 
               ADVANCED SCHEDULER
               ==================
