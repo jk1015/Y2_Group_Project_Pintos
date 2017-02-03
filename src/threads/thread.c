@@ -576,7 +576,7 @@ next_thread_to_run (void)
   }
 }
 
-//TODO Comment
+/* Updates recent_cpu of thread */
 
 void
 thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
@@ -594,7 +594,7 @@ thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
   intr_set_level (old_level);
 }
 
-//TODO Comment
+/* Updates priority of thread */
 
 void
 thread_update_bsd (struct thread *t, void *aux UNUSED)
@@ -650,6 +650,8 @@ thread_get_load_avg (void)
   return rounded_load_avg;
 }
 
+/* Updates load average */
+
 void
 thread_update_load_avg (void)
 {
@@ -690,6 +692,12 @@ thread_get_recent_cpu (void)
 
   return rounded_cpu;
 }
+
+/* Called every timer tick.
+   Increments recent cpu of current thread every tick.
+   Recalculates priorities for current thread each time slice.
+   Recalculates recent cpu, priorities and load average for all threads each
+   second.   */
 
 void
 bsd_recalculate (void)

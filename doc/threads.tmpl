@@ -273,18 +273,21 @@ go unnoticed in testing.
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
 typedef int fixed_point_t;
-  the fixed_point_t typedef is used to distinguish between fixed points and ints within the code.
+  The fixed_point_t typedef is used to distinguish between fixed points and ints
+  within the code for clarity.
 
 static fixed_point_t load_avg;
-  Used to keep track of load average of threads
+  Used to keep track of load average of threads.
 
 struct thread
   {
     int nice;
-      Used to keep track of the threads nice value.
+      Used to keep track of the threads nice value, used to determine
+      priorities.
 
-    fixed_point_t recent_cpu; 
-      Used to keep track of the threads recent_cpu value.
+    fixed_point_t recent_cpu;
+      Used to keep track of the threads recent_cpu value, used to determine
+      priorities.
   };
 
 ---- ALGORITHMS ----
@@ -299,47 +302,47 @@ timer  recent_cpu    priority   thread
 ticks   A   B   C   A   B   C   to run
 -----  --  --  --  --  --  --   ------
 0       0   0   0  63  61  59     A
-4       4   0   0  62  61  59     A                        
-8       8   0   0  61  61  59     B                          
-12      8   4   0  61  60  59     A                          
-16     12   4   0  60  60  59     B                          
-20     12   8   0  60  59  59     A    
-24     16   8   0  59  59  59     C                           
-28     16   8   4  59  59  58     B                           
-32     16  12   4  59  58  58     A                           
+4       4   0   0  62  61  59     A
+8       8   0   0  61  61  59     B
+12      8   4   0  61  60  59     A
+16     12   4   0  60  60  59     B
+20     12   8   0  60  59  59     A
+24     16   8   0  59  59  59     C
+28     16   8   4  59  59  58     B
+32     16  12   4  59  58  58     A
 36     20  12   4  58  58  58     C
 
 >> B3: (5 marks)
 >> Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behaviour of your scheduler?
-The term "round robin" was ambiguous. For the example above, when the timer 
-ticks reaches 8, there are 2 threads that have maximum priority. Thread A
-was the last one to run. Therefore, B should be the next thread scheduled
-to run. The problem also appears at tick 24, where we can choose out of 3
-available threads. Since thread A was the last to run, but C was the first one
-in the 59 priority queue, C should run first, then B and then A.
-This is indirectly handled by the scheduler since 'C' would be inserted into the ready_list 
-first, followed by 'B' and then 'A'. The next_thread_to_run would simply fetch the first max within 
-the list, which would be 'C' then 'B' and then 'A'. Hence this does match the behaviour of our 
-scheduler.
+The term "round robin" was ambiguous. For the example above, when the timer
+ticks reaches 8, there are 2 threads that have maximum priority. Thread A was
+the last one to run. Therefore, B should be the next thread scheduled to run.
+The problem also appears at tick 24, where we can choose out of 3 available
+threads. Since thread A was the last to run, but C was the first one in the 59
+priority queue, C should run first, then B and then A. This is indirectly
+handled by the scheduler since 'C' would be inserted into the ready_list  first,
+followed by 'B' and then 'A'. The next_thread_to_run would simply fetch the
+first max within the list, which would be 'C' then 'B' and then 'A'. Hence this
+does match the behaviour of our scheduler.
 
 
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
-The code which calculates values required by the advanced scheduler 
-is called from within the thread tick function and hence from an 
+The code which calculates values required by the advanced scheduler
+is called from within the thread tick function and hence from an
 external interrupt context.
-This will yield slower execution times within the operating system 
-because more time is burnt between ticks, due to a larger 
+This will yield slower execution times within the operating system
+because more time is burnt between ticks, due to a larger
 amount of calculations executed inside the timer interrupt handler.
 These calculations were reduced in two ways.
-The currently running threads priority only needed to be updated once 
-every time slice (4 ticks) as it is the only thread that changes values 
+The currently running threads priority only needed to be updated once
+every time slice (4 ticks) as it is the only thread that changes values
 of recent_cpu.
-The priority, recent_cpu and load_avg is recalculated for all threads every 
-second. This is expensive and, for a system with a large amount of threads, may 
+The priority, recent_cpu and load_avg is recalculated for all threads every
+second. This is expensive and, for a system with a large amount of threads, may
 be an infeasible scheduling algorithm.
 
 
@@ -349,11 +352,17 @@ be an infeasible scheduling algorithm.
 >> Briefly critique your design, pointing out advantages and
 >> disadvantages in your design choices.
 The same design choices used within the priority scheduler were used. A single
-unordered list of threads to keep track of the ready threads. This avoids having to continuously reorder the list
-when a priority of a thread is altered. This design choice was also advantageous in the 
-sense that the threads are solely ordered based on when the thread was added to the list (as can be seen in B3).
-However, a disadvantage is that next_thread_to_run must run a search for the highest element in the list.
-This design choice stays consistent with section A.
+unordered list of threads to keep track of the ready threads. This avoids having
+to continuously reorder the list when a priority of a thread is altered. This
+design choice was also advantageous in the  sense that the threads are solely
+ordered based on when the thread was added to the list (as can be seen in B3).
+However, a disadvantage is that next_thread_to_run must run a search for the
+highest element in the list, giving slower access time than an ordered list
+implementation.
+This design choice stays consistent with section A, this is also advantageous
+as, in addition to the advantages of the design from section A, it means that
+the code written for section A can be reused in this section. Overall this leads
+to a smaller code base, making debugging easier and code more maintainable.
 
 
 >> B6: (5 marks)
@@ -363,8 +372,9 @@ This design choice stays consistent with section A.
 >> abstraction layer for fixed-point mathematics, that is, an abstract
 >> data type and/or a set of functions or macros to manipulate
 >> fixed-point numbers, why did you do so?  If not, why not?
-The fixed point arithmetic was implemented solely by the use of macros.
-The reason for this is that macros do not have the overhead that function calls do.
-A typedef was used such that the user can distinguish between fixed points and ints which
-makes maintaining the code simpler. Macros were defined to do binary operations between
-fixed points and ints as well as converting from one to another.
+The fixed point arithmetic was implemented solely by the use of macros. The
+reason for this is that macros do not have the overhead that function calls do.
+A typedef was used such that the user can distinguish between fixed points and
+ints which makes maintaining the code simpler. Macros were defined to do binary
+operations between fixed points and ints as well as converting from one to
+another.
