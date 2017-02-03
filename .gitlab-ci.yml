@@ -22,6 +22,5 @@ testsuite:
     script:
         - cd src/utils && make
         - export PATH=$(pwd):$PATH
-        - cd ../devices && make
-        - cd ../devices/build/
-        - make check
+        - cd ../devices && make check
+        - cd ../threads && make check
