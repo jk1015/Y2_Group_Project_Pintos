@@ -95,9 +95,10 @@ intr_enable (void)
      See [IA32-v2b] "STI" and [IA32-v3a] 5.8.1 "Masking Maskable
      Hardware Interrupts". */
   asm volatile ("sti");
-  if(yield_on_intr_enable) {
+  if (yield_on_intr_enable)
+  {
     yield_on_intr_enable = false;
-    thread_yield();
+    thread_yield ();
   }
   return old_level;
 }

@@ -33,7 +33,7 @@
 #include "threads/thread.h"
 
 
-static void donate_priority(struct lock* lock, int priority);
+static void donate_priority (struct lock* lock, int priority);
 
 /* Compares priorities of threads in semaphore_elems with singleton waiters */
 static bool sema_elem_priority_less_func (
@@ -128,17 +128,18 @@ sema_up (struct semaphore *sema)
 
   //Corrects for earlier disabling of interrupts in lock_release
 
-  if (lock_release_intr_flag) {
+  if (lock_release_intr_flag)
+  {
     old_level = lock_release_intr_level;
     lock_release_intr_flag = false;
-  } else {
+  } else
     old_level = intr_disable ();
-  }
 
-  if (!list_empty (&sema->waiters)) {
+  if (!list_empty (&sema->waiters))
+  {
     struct list_elem *max =
-      list_max(&sema->waiters, &thread_priority_less_func, NULL);
-    list_remove(max);
+      list_max (&sema->waiters, &thread_priority_less_func, NULL);
+    list_remove (max);
     thread_unblock (list_entry (max, struct thread, elem));
   }
   sema->value++;
@@ -223,31 +224,32 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  struct thread* cur = thread_current();
+  struct thread* cur = thread_current ();
   struct semaphore* lock_access = &lock->access_sema;
 
-  donate_priority(lock, cur->priority);
+  donate_priority (lock, cur->priority);
 
   cur->waiting_on = lock;
 
-  sema_down(&lock->semaphore);
+  sema_down (&lock->semaphore);
 
-  sema_down(lock_access);
+  sema_down (lock_access);
 
   cur->waiting_on = NULL;
-  list_push_back(&cur->acquired_locks, &lock->elem);
+  list_push_back (&cur->acquired_locks, &lock->elem);
 
-    if(list_empty(&lock->semaphore.waiters)) {
+  if (list_empty (&lock->semaphore.waiters))
     lock->priority = PRI_MIN;
-  } else {
+  else
+  {
     lock->priority = list_entry (
-      list_max(&lock->semaphore.waiters, &thread_priority_less_func, NULL),
+      list_max (&lock->semaphore.waiters, &thread_priority_less_func, NULL),
       struct thread,
       elem)->priority;
   }
 
   lock->holder = thread_current ();
-  sema_up(lock_access);
+  sema_up (lock_access);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -266,8 +268,10 @@ lock_try_acquire (struct lock *lock)
 
   success = sema_try_down (&lock->semaphore);
   if (success)
+  {
     lock->holder = thread_current ();
-    list_push_back(&thread_current()->acquired_locks, &lock->elem);
+    list_push_back (&thread_current ()->acquired_locks, &lock->elem);
+  }
   return success;
 }
 
@@ -284,7 +288,7 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
 
-  struct thread* cur = thread_current();
+  struct thread* cur = thread_current ();
   struct list* lock_list = &cur->acquired_locks;
   int temp_priority = PRI_MIN;
 
@@ -295,11 +299,11 @@ lock_release (struct lock *lock)
        current_elem = list_next (current_elem))
     {
       struct lock* acquired_lock = list_entry (current_elem, struct lock, elem);
-      if (acquired_lock == lock) {
-        list_remove(current_elem);
-      } else if (temp_priority < acquired_lock->priority) {
+      if (acquired_lock == lock)
+        list_remove (current_elem);
+      else if (temp_priority < acquired_lock->priority)
           temp_priority = acquired_lock->priority;
-      }
+
     }
 
   /* If interrupts were enabled when the priority is lowered it is possible that
@@ -309,12 +313,13 @@ lock_release (struct lock *lock)
      lower, priority is highest in ready_threads. This is the same problem
      priority donation attempts to avoid, so we must disable interrupts. */
 
-  lock_release_intr_level = intr_disable();
+  lock_release_intr_level = intr_disable ();
   lock_release_intr_flag = true;
-  if(temp_priority > cur->base_priority)
+  if (temp_priority > cur->base_priority)
     cur->priority = temp_priority;
   else
     cur->priority = cur->base_priority;
+
   sema_up (&lock->semaphore);
 
 }
@@ -337,12 +342,12 @@ lock_held_by_current_thread (const struct lock *lock)
    to priority. Finally if if the holder is waiting on another lock calls itself
    recursively on that lock.  */
 void
-donate_priority(struct lock* lock, int pri)
+donate_priority (struct lock* lock, int pri)
 {
 
-  sema_down(&lock->access_sema);
+  sema_down (&lock->access_sema);
 
-  if(lock->priority < pri)
+  if (lock->priority < pri)
   {
 
     lock->priority = pri;
@@ -350,28 +355,18 @@ donate_priority(struct lock* lock, int pri)
 
     if (lock_holder != NULL && lock_holder->priority < pri)
     {
-
-      lock_holder->priority = pri; //TODO Needs protection
+      lock_holder->priority = pri;
       struct lock *nested_lock = lock_holder->waiting_on;
-      sema_up(&lock->access_sema);
-      if (nested_lock != NULL)
-      {
-        donate_priority(nested_lock, pri);
-      }
+      sema_up (&lock->access_sema);
 
+      if (nested_lock != NULL)
+        donate_priority (nested_lock, pri);
     }
     else
-    {
-      sema_up(&lock->access_sema);
-    }
+      sema_up (&lock->access_sema);
   }
   else
-  {
-    sema_up(&lock->access_sema);
-  }
-
-
-
+    sema_up (&lock->access_sema);
 }
 
 
@@ -445,11 +440,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters)) {
-
+  if (!list_empty (&cond->waiters))
+  {
     struct list_elem *max =
-      list_max(&cond->waiters, &sema_elem_priority_less_func, NULL);
-      list_remove(max);
+      list_max (&cond->waiters, &sema_elem_priority_less_func, NULL);
+      list_remove (max);
 
 
     sema_up (&list_entry (max, struct semaphore_elem, elem)->semaphore);
@@ -478,14 +473,14 @@ bool sema_elem_priority_less_func (
 {
 
   struct semaphore sema_a
-      = list_entry(a, struct semaphore_elem, elem)->semaphore;
+      = list_entry (a, struct semaphore_elem, elem)->semaphore;
   struct semaphore sema_b
-      = list_entry(b, struct semaphore_elem, elem)->semaphore;
+      = list_entry (b, struct semaphore_elem, elem)->semaphore;
 
-  ASSERT(list_begin(&sema_a.waiters) == list_rbegin(&sema_a.waiters));
-  ASSERT(list_begin(&sema_b.waiters) == list_rbegin(&sema_b.waiters));
+  ASSERT (list_begin (&sema_a.waiters) == list_rbegin (&sema_a.waiters));
+  ASSERT (list_begin (&sema_b.waiters) == list_rbegin (&sema_b.waiters));
 
 
-  return thread_priority_less_func(list_begin(&sema_a.waiters),
-                                   list_begin(&sema_b.waiters), NULL);
+  return thread_priority_less_func (list_begin (&sema_a.waiters),
+                                    list_begin (&sema_b.waiters), NULL);
 }
