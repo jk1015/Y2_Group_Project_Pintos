@@ -278,10 +278,10 @@ the fixed_point_t typedef is used to distinguish between fixed points and ints w
 struct thread
   {
     int nice;
-    Used to keep track of threads nice value.
+    Used to keep track of the threads nice value.
 
     fixed_point_t recent_cpu; 
-    Used to keep track of threads recent_cpu value.
+    Used to keep track of the threads recent_cpu value.
   };
 
 ---- ALGORITHMS ----
@@ -345,12 +345,12 @@ be an infeasible scheduling algorithm.
 >> B5: (5 marks)
 >> Briefly critique your design, pointing out advantages and
 >> disadvantages in your design choices.
-We chose to use the same design choices used within the priority scheduler. A single
-unordered list of threads to keep track of the ready list. This avoids having to continuously reorder the list
-when a priority of a thread is changed. However when calculating next_thread_to_run,
-a search for the highest element is necessary. This unordered list is also useful in the 
-sense that the threads are solely ordered based on when the thread was added to 
-the list (as can be seen in B3).
+The same design choices used within the priority scheduler were used. A single
+unordered list of threads to keep track of the ready threads. This avoids having to continuously reorder the list
+when a priority of a thread is altered. This design choice was also advantageous in the 
+sense that the threads are solely ordered based on when the thread was added to the list (as can be seen in B3).
+However, a disadvantage is that next_thread_to_run must run a search for the highest element in the list.
+This design choice stays consistent with section A.
 
 
 >> B6: (5 marks)
