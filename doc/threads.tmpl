@@ -345,7 +345,13 @@ be an infeasible scheduling algorithm.
 >> B5: (5 marks)
 >> Briefly critique your design, pointing out advantages and
 >> disadvantages in your design choices.
-// TODO: Inusha
+We chose to use the same design choices used within the priority scheduler. A single
+unordered list of threads to keep track of the ready list. This avoids having to continuously reorder the list
+when a priority of a thread is changed. However when calculating next_thread_to_run,
+a search for the highest element is necessary. This unordered list is also useful in the 
+sense that the threads are solely ordered based on when the thread was added to 
+the list (as can be seen in B3).
+
 
 >> B6: (5 marks)
 >> The assignment explains arithmetic for fixed-point mathematics in
