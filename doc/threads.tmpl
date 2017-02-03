@@ -263,6 +263,18 @@ levels.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+typedef int fixed_point_t;
+the fixed_point_t typedef is used to distinguish between fixed points and ints within the code.
+
+struct thread
+  {
+    int nice;
+    Used to keep track of threads nice value.
+
+    fixed_point_t recent_cpu; 
+    Used to keep track of threads recent_cpu value.
+  };
+
 ---- ALGORITHMS ----
 
 >> B2: (5 marks)
