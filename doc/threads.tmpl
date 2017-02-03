@@ -274,21 +274,29 @@ levels.
 timer  recent_cpu    priority   thread
 ticks   A   B   C   A   B   C   to run
 -----  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
+0       0   0   0  63  61  59     A
+4       4   0   0  62  61  59     A                        
+8       8   0   0  61  61  59     B                          
+12      8   4   0  61  60  59     A                          
+16     12   4   0  60  60  59     B                          
+20     12   8   0  60  59  59     A    
+24     16   8   0  59  59  59     C                           
+28     16   8   4  59  59  58     B                           
+32     16  12   4  59  58  58     A                           
+36     20  12   4  58  58  58     C
 
 >> B3: (5 marks)
 >> Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behaviour of your scheduler?
+The term "round robin" was ambiguous. For the example above, when the timer 
+ticks reaches 8, there are 2 threads that have maximum priority. Thread A
+was the last one to run. Therefore, B should be the next thread scheduled
+to run. The problem also appears at tick 24, where we can choose out of 3
+available threads. Since thread A was the last to run, but C was the first one
+in the 59 priority queue, C should run first, then B and then A. This 
+behavious is somewhat unintuitive.
+
 
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
