@@ -273,15 +273,18 @@ go unnoticed in testing.
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
 typedef int fixed_point_t;
-the fixed_point_t typedef is used to distinguish between fixed points and ints within the code.
+  the fixed_point_t typedef is used to distinguish between fixed points and ints within the code.
+
+static fixed_point_t load_avg;
+  Used to keep track of load average of threads
 
 struct thread
   {
     int nice;
-    Used to keep track of the threads nice value.
+      Used to keep track of the threads nice value.
 
     fixed_point_t recent_cpu; 
-    Used to keep track of the threads recent_cpu value.
+      Used to keep track of the threads recent_cpu value.
   };
 
 ---- ALGORITHMS ----
