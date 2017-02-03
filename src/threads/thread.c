@@ -80,8 +80,7 @@ static tid_t allocate_tid (void);
 static void thread_update_bsd (struct thread *t, void *aux UNUSED);
 static void thread_yield_priority (void);
 
-/*.................*/
-/* TODO: Comment */
+
 static bool add_to_ready_list(struct thread *t);
 bool thread_priority_less_func (
   const struct list_elem *a, const struct list_elem *b, void *aux);
@@ -255,7 +254,7 @@ add_to_ready_list(struct thread *t)
 {
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
-  return (t->priority) > thread_get_priority();
+  return (t->priority) > thread_get_priority ();
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -275,15 +274,14 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  bool yield = add_to_ready_list(t);
+  bool yield = add_to_ready_list (t);
   intr_set_level (old_level);
 
-  if(yield) {
-    if(intr_get_level() == INTR_ON) {
+  if (yield) {
+    if (intr_get_level() == INTR_ON)
       thread_yield();
-    } else {
+    else
       yield_on_intr_enable = true;
-    }
   }
 
 }
@@ -353,8 +351,10 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+
   if (cur != idle_thread)
     list_push_back (&ready_list, &cur->elem);
+
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -389,8 +389,8 @@ thread_set_priority (int new_priority)
   struct thread *cur = thread_current();
 
   int old_priority = cur->priority;
+  int temp_priority = new_priority;
   cur->base_priority = new_priority;
-  cur->priority = new_priority;
 
   struct list_elem* current_elem;
 
@@ -400,17 +400,19 @@ thread_set_priority (int new_priority)
        current_elem = list_next (current_elem))
     {
       struct lock* acquired_lock = list_entry (current_elem, struct lock, elem);
-      if (cur->priority < acquired_lock->priority) {
-          cur->priority = acquired_lock->priority;
-      }
+      if (temp_priority < acquired_lock->priority)
+          temp_priority = acquired_lock->priority;
     }
+    
+  cur->priority = temp_priority;
 
-  if(old_priority > cur->priority) {
+  if (old_priority > cur->priority)
+  {
     intr_set_level (old_level);
-    thread_yield();
-  } else {
-    intr_set_level (old_level);
+    thread_yield ();
   }
+  else
+    intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -517,17 +519,19 @@ init_thread (struct thread *t, const char *name, int priority)
 
   if (thread_mlfqs)
   {
-    if(list_empty (&all_list))
+    if (list_empty (&all_list))
     {
       // First thread
       t->priority = PRI_MAX; // Ignore given priority and use MAX
-    } else {
+    }
+    else
+    {
       // Take nice and recent_cpu from parent thread
       t->nice = thread_current ()->nice;
       t->recent_cpu = thread_current ()->recent_cpu;
 
       // Calculate priority
-      thread_update_bsd(t, NULL);
+      thread_update_bsd (t, NULL);
     }
 
   }
@@ -563,30 +567,34 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else {
+  else
+  {
     struct list_elem *max =
-      list_max(&ready_list, &thread_priority_less_func, NULL);
-    list_remove(max);
+      list_max (&ready_list, &thread_priority_less_func, NULL);
+    list_remove (max);
     return list_entry (max, struct thread, elem);
   }
 }
 
+//TODO Comment
 
 void
 thread_update_recent_cpu (struct thread* t, void* aux UNUSED)
 {
-  enum intr_level old_level = intr_disable();
+  enum intr_level old_level = intr_disable ();
 
   fixed_point_t recent_cpu = t->recent_cpu;
-  fixed_point_t recent_cpu_2 = mult_f(load_avg, convert_int_to_fp(2));
+  fixed_point_t recent_cpu_2 = mult_f (load_avg, convert_int_to_fp (2));
 
-  recent_cpu = (add_f(mult_f(divide_f(recent_cpu_2, add_f(recent_cpu_2, 1)), recent_cpu), t->nice));
+  recent_cpu = add_f (mult_f (divide_f (recent_cpu_2,
+                 add_f (recent_cpu_2, 1)), recent_cpu), t->nice);
 
   t->recent_cpu = recent_cpu;
 
   intr_set_level (old_level);
-
 }
+
+//TODO Comment
 
 void
 thread_update_bsd (struct thread *t, void *aux UNUSED)
@@ -594,10 +602,10 @@ thread_update_bsd (struct thread *t, void *aux UNUSED)
   enum intr_level old_level = intr_disable();
 
   fixed_point_t priority = convert_int_to_fp (PRI_MAX);
-  fixed_point_t recent_cpu = divide_f(t->recent_cpu, convert_int_to_fp(4));
+  fixed_point_t recent_cpu = divide_f (t->recent_cpu, convert_int_to_fp(4));
   priority -= recent_cpu;
-  priority -= convert_int_to_fp(t->nice * 2);
-  int priority_int = convert_fp_to_int_round_to_nearest(priority);
+  priority -= convert_int_to_fp (t->nice * 2);
+  int priority_int = convert_fp_to_int_round_to_nearest (priority);
 
   if (priority_int > PRI_MAX)
     priority_int = PRI_MAX;
@@ -607,17 +615,16 @@ thread_update_bsd (struct thread *t, void *aux UNUSED)
 
   t->priority = priority_int;
   intr_set_level (old_level);
-
 }
 
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED)
 {
-  enum intr_level old_level = intr_disable();
+  enum intr_level old_level = intr_disable ();
   thread_current ()->nice = nice;
-  thread_update_bsd(thread_current(), NULL);
-  thread_yield_priority();
+  thread_update_bsd (thread_current (), NULL);
+  thread_yield_priority ();
   intr_set_level (old_level);
 }
 
@@ -636,10 +643,10 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void)
 {
-  enum intr_level old_level = intr_disable();
+  enum intr_level old_level = intr_disable ();
 
-  fixed_point_t current_load_avg = mult_f(load_avg, convert_int_to_fp(100));
-  int rounded_load_avg = convert_fp_to_int_round_to_nearest(current_load_avg);
+  fixed_point_t current_load_avg = mult_f (load_avg, convert_int_to_fp (100));
+  int rounded_load_avg = convert_fp_to_int_round_to_nearest (current_load_avg);
   intr_set_level (old_level);
 
   return rounded_load_avg;
@@ -650,16 +657,20 @@ thread_update_load_avg (void)
 {
   enum intr_level old_level = intr_disable();
 
-  fixed_point_t load_avg_const = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
-  fixed_point_t ready_threads_const = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
-  int ready_threads = list_size(&ready_list);
+  fixed_point_t load_avg_const
+    = divide_f(convert_int_to_fp(59), convert_int_to_fp(60));
+
+  fixed_point_t ready_threads_const
+    = divide_f(convert_int_to_fp(1), convert_int_to_fp(60));
+
+  int ready_threads = list_size (&ready_list);
   if (thread_current () != idle_thread)
     ready_threads++;
 
-  fixed_point_t ready_threads_fp = convert_int_to_fp(ready_threads);
+  fixed_point_t ready_threads_fp = convert_int_to_fp (ready_threads);
 
-  fixed_point_t lhs = mult_f(load_avg_const, load_avg);
-  fixed_point_t rhs = mult_f(ready_threads_const, ready_threads_fp);
+  fixed_point_t lhs = mult_f (load_avg_const, load_avg);
+  fixed_point_t rhs = mult_f (ready_threads_const, ready_threads_fp);
 
   load_avg = lhs + rhs;
 
@@ -672,7 +683,9 @@ thread_get_recent_cpu (void)
 {
   enum intr_level old_level = intr_disable();
 
-  fixed_point_t recent_cpu = mult_f(thread_current ()->recent_cpu, convert_int_to_fp(100));
+  fixed_point_t recent_cpu
+    = mult_f(thread_current ()->recent_cpu, convert_int_to_fp(100));
+
   int rounded_cpu = convert_fp_to_int_round_to_nearest(recent_cpu);
 
   intr_set_level (old_level);
@@ -683,12 +696,12 @@ thread_get_recent_cpu (void)
 void
 bsd_recalculate(void)
 {
-  enum intr_level old_level = intr_disable();
+  enum intr_level old_level = intr_disable ();
   /* recalculating recent cpu and load avg */
   if (timer_ticks () % TIMER_FREQ == 0)
   {
     thread_update_load_avg ();
-    thread_foreach(&thread_update_recent_cpu, NULL);
+    thread_foreach (&thread_update_recent_cpu, NULL);
   }
 
   struct thread *t = thread_current ();
@@ -696,15 +709,17 @@ bsd_recalculate(void)
 
   /* incrementing current threads recent cpu */
   if (t != idle_thread)
-    t->recent_cpu = add_f(t->recent_cpu, 1);
+    t->recent_cpu = add_f (t->recent_cpu, 1);
 
 
   /* recalculating priorities */
   if (timer_ticks () % TIME_SLICE == 0)
-    thread_foreach(&thread_update_bsd, NULL);
+    thread_foreach (&thread_update_bsd, NULL);
 
   intr_set_level (old_level);
 }
+
+//TODO What?
 /* Compares priorities of Thread list_elems */
 bool thread_priority_great_func (
   const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
@@ -719,9 +734,9 @@ thread_yield_priority (void)
 {
   struct list_elem *max;
   if (thread_mlfqs)
-    max = list_max(&ready_list, &thread_priority_great_func, NULL);
+    max = list_max (&ready_list, &thread_priority_great_func, NULL);
   else
-    max = list_max(&ready_list, &thread_priority_less_func, NULL);
+    max = list_max (&ready_list, &thread_priority_less_func, NULL);
 
   if (!list_empty(&ready_list) && thread_get_priority() <
        list_entry (max, struct thread, elem)->priority)
@@ -735,8 +750,8 @@ thread_yield_priority (void)
 bool thread_priority_less_func (
   const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  struct thread* thread_a = list_entry(a, struct thread, elem);
-  struct thread* thread_b = list_entry(b, struct thread, elem);
+  struct thread* thread_a = list_entry (a, struct thread, elem);
+  struct thread* thread_b = list_entry (b, struct thread, elem);
   return thread_a->priority < thread_b->priority;
 }
 
