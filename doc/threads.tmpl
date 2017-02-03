@@ -83,7 +83,31 @@ the current thread.
 >> Explain the data structure used to track priority donation.
 >> Give a diagram that illustrates a nested donation in your structure.
 
-//TODO Explain data structure
+To track priority donation, we modified the existing lock and thread structs.
+Each lock tracks the highest priority of the threads that are waiting on it. We
+also use the existing list of waiters and the pointer to the current holder.
+Each thread now contains it's original priority; a list of locks that the thread
+has acquired; as well a pointer to the lock that the thread is currently waiting
+on, if the thread is waiting.
+When a high priority thread acquires a lock and tries to donate its priority,
+the acquire_lock function calls the donate_priority function on the lock. If the
+new priority is higher than the lock's current priority, the lock's priority if
+updated. Then, if this priority is updated, the function modifies the holder
+thread's priority through the lock's pointer to its holder, again provided the
+new priority is higher than the thread's current priority. In a nested donation,
+the function accesses the lock that the thread is waiting on through the
+thread's pointer to it, and recursively calls the function on that lock. An
+example of this can be seen in the diagram below: the function returns when
+either the lock or thread has a higher priority than that being donated, as
+shown, or it donates to a thread not waiting on a lock.
+When a lock is released, lock_release iterates through the lock holder's list of
+acquired locks. The priority field of these locks is used to determine the new
+highest priority, which the threads priority is set to if it is higher than the
+original priority. The lock is removed from the thread's list of acquired locks.
+When a thread acquires the lock the lock is pushed to the thread's list of
+acquired locks. It then iterates through the lock's list of waiters, finding the
+highest priority thread, and updating the lock's priority to that. The lock's
+holder is then updated to the new thread.
 
 +-----------+
 |   Lock    |
