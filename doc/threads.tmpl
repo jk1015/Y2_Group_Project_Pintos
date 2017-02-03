@@ -306,13 +306,23 @@ ticks reaches 8, there are 2 threads that have maximum priority. Thread A
 was the last one to run. Therefore, B should be the next thread scheduled
 to run. The problem also appears at tick 24, where we can choose out of 3
 available threads. Since thread A was the last to run, but C was the first one
-in the 59 priority queue, C should run first, then B and then A. This 
-behavious is somewhat unintuitive.
+in the 59 priority queue, C should run first, then B and then A.
+This is indirectly handled by the scheduler since 'C' would be inserted into the ready_list 
+first, followed by 'B' and then 'A'. The next_thread_to_run would simply fetch the first max within 
+the list, which would be 'C' then 'B' and then 'A'. Hence this does match the behaviour of our 
+scheduler.
 
 
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+The current running thread's priority only needed to be updated once 
+every time slice (4 ticks) as it is the only thread that changes values 
+of recent_cpu.
+The priority, recent_cpu and load_avg is recalculated for all threads every 
+second. This is expensive and for a system with a large amount of threads may 
+be an infeasible scheduling algorithm.
+
 
 ---- RATIONALE ----
 
