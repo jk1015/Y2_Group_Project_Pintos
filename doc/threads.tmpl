@@ -186,7 +186,7 @@ recursive call.
 >> Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
 When lock_release is called the lock upon which it is called first has its
-holder set to NULL. Following this the function itterates through the
+holder set to NULL. Following this the function iterates through the
 acquired_locks of the calling thread, removing the released lock and finding the
 maximum priority value of the other locks. Before the priority of the thread is
 updated to this maximum value interrupts must be disabled, this is to prevent an
@@ -239,7 +239,7 @@ concern as a thread is limited to a single 4kb page and so increasing the size
 of the struct limits the possible stack size. One design we considered was to
 construct an array of 64 lists each list containing locks of a different
 priority from 0-63, this would have been used in place of the current
-acquired_locks list, and would have given significatly faster access times
+acquired_locks list, and would have given significantly faster access times
 with only the small complication of having to move a lock to a different list
 whenever its priority changed. Ultimately however we chose the simpler data
 structure of a single list, this is because the array suggested would have had
@@ -345,7 +345,7 @@ be an infeasible scheduling algorithm.
 >> abstraction layer for fixed-point mathematics, that is, an abstract
 >> data type and/or a set of functions or macros to manipulate
 >> fixed-point numbers, why did you do so?  If not, why not?
-The fixed point arithmetic was implemented soley by the use of macros.
+The fixed point arithmetic was implemented solely by the use of macros.
 The reason for this is that macros do not have the overhead that function calls do.
 A typedef was used such that the user can distinguish between fixed points and ints which
 makes maintaining the code simpler. Macros were defined to do binary operations between
