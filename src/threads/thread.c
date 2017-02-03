@@ -78,7 +78,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void thread_update_bsd (struct thread *t, void *aux UNUSED);
-static void thread_yield_priority (void);
 
 
 static bool add_to_ready_list (struct thread *t);
@@ -154,7 +153,7 @@ thread_tick (void)
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
+    thread_yield ();
 }
 
 /* Prints thread statistics. */
@@ -227,7 +226,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  thread_yield_priority();
+  thread_yield ();
 
   return tid;
 }
@@ -625,7 +624,7 @@ thread_set_nice (int nice UNUSED)
   enum intr_level old_level = intr_disable ();
   thread_current ()->nice = nice;
   thread_update_bsd (thread_current (), NULL);
-  thread_yield_priority ();
+  thread_yield ();
   intr_set_level (old_level);
 }
 
@@ -719,33 +718,6 @@ bsd_recalculate (void)
 
   intr_set_level (old_level);
 }
-
-//TODO What?
-/* Compares priorities of Thread list_elems */
-bool thread_priority_great_func (
-  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
-{
-  struct thread* thread_a = list_entry (a, struct thread, elem);
-  struct thread* thread_b = list_entry (b, struct thread, elem);
-  return thread_a->priority > thread_b->priority;
-}
-
-void
-thread_yield_priority (void)
-{
-  struct list_elem *max;
-  if (thread_mlfqs)
-    max = list_max (&ready_list, &thread_priority_great_func, NULL);
-  else
-    max = list_max (&ready_list, &thread_priority_less_func, NULL);
-
-  if (!list_empty (&ready_list) && thread_get_priority () <
-       list_entry (max, struct thread, elem)->priority)
-  {
-    thread_yield ();
-  }
-}
-
 
 /* Compares priorities of Thread list_elems */
 bool thread_priority_less_func (
