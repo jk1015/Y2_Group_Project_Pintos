@@ -250,7 +250,17 @@ we wanted more granularity in the priority by adding additional priority levels
 our design could do so without increasing space usage, whereas the array method
 would require an additional 8 Bytes per level, giving a hard cap of 512 priority
 levels.
-//TODO Simplicity
+
+An additional concern when choosing our design was its simplicity. This is
+important because we are currently working on sections of the kernel which are
+integral to  the operating system, this means that we must make our code as bug
+free as possible now and as comprehensible as possible so that is can be
+properly maintained in  the future. Managing an array of 64 lists throughout the
+scheduling system would have introduced additional complications not present in
+a far simpler implementation using a single list. We came to the conclusion that
+the performance gained in  the alternate design was not worth the additional
+risk of bugs, especially in a non-deterministic system in which those bugs may
+go unnoticed in testing.
 
               ADVANCED SCHEDULER
               ==================
