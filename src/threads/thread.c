@@ -153,7 +153,7 @@ thread_tick (void)
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
-    thread_yield ();
+    intr_yield_on_return ();
 }
 
 /* Prints thread statistics. */
