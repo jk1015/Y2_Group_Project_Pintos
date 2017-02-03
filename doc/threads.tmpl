@@ -320,7 +320,7 @@ The code which calculates values required by the advanced scheduler
 is called from within the thread tick function and hence from an 
 external interrupt context.
 This will yield slower execution times within the operating system 
-becuase more time is burnt between ticks, due to a larger 
+because more time is burnt between ticks, due to a larger 
 amount of calculations executed inside the timer interrupt handler.
 These calculations were reduced in two ways.
 The currently running threads priority only needed to be updated once 
