@@ -316,6 +316,13 @@ scheduler.
 >> B4: (5 marks)
 >> How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
+The code which calculates values required by the advanced scheduler 
+is called from within the thread tick function and hence from an 
+external interrupt context.
+This will yield slower execution times within the operating system 
+becuase more time is burnt between ticks, due to a larger 
+amount of calculations executed inside the timer interrupt handler.
+These calculations were reduced in two ways.
 The currently running threads priority only needed to be updated once 
 every time slice (4 ticks) as it is the only thread that changes values 
 of recent_cpu.
@@ -329,6 +336,7 @@ be an infeasible scheduling algorithm.
 >> B5: (5 marks)
 >> Briefly critique your design, pointing out advantages and
 >> disadvantages in your design choices.
+// TODO: Inusha
 
 >> B6: (5 marks)
 >> The assignment explains arithmetic for fixed-point mathematics in
@@ -337,3 +345,4 @@ be an infeasible scheduling algorithm.
 >> abstraction layer for fixed-point mathematics, that is, an abstract
 >> data type and/or a set of functions or macros to manipulate
 >> fixed-point numbers, why did you do so?  If not, why not?S
+// TODO: Inusha
