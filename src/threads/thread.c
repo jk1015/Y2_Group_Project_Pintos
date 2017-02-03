@@ -624,17 +624,15 @@ thread_set_nice (int nice UNUSED)
   enum intr_level old_level = intr_disable ();
   thread_current ()->nice = nice;
   thread_update_bsd (thread_current (), NULL);
-  thread_yield ();
   intr_set_level (old_level);
+  thread_yield ();
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void)
 {
-  enum intr_level old_level = intr_disable ();
   int nice = thread_current ()->nice;
-  intr_set_level (old_level);
 
   return nice;
 }
