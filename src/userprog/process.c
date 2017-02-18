@@ -21,6 +21,9 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+
+static void push_str_to_stack(const char* str, void** esp);
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -48,9 +51,11 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *args_)
 {
-  char *file_name = file_name_;
+  char *args = args_;
+  char *save_ptr;
+  char *file_name = strtok_r(args, " ", &save_ptr);
   struct intr_frame if_;
   bool success;
 
@@ -66,6 +71,40 @@ start_process (void *file_name_)
   if (!success)
     thread_exit ();
 
+  uint32_t argc = 1;
+  char *tokens[(strlen(args) / 2)];
+  tokens[0] = file_name;
+
+  char *token;
+  for (token = strtok_r (NULL, " ", &save_ptr); token != NULL;
+    token = strtok_r (NULL, " ", &save_ptr))
+  {
+    tokens[argc] = token;
+    argc++;
+  }
+
+  char *argv[argc];
+  for (int i = argc - 1; i < 0; i--)
+  {
+    argv[argc - 1 - i] = (char *) if_.esp;
+    push_str_to_stack(tokens[i], &if_.esp);
+  }
+
+  *((uint32_t *) if_.esp) = 0;
+  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+
+  for (uint32_t i = 0; i < argc; i++)
+  {
+    *((void **) if_.esp) = (void *) argv[i];
+    if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+  }
+
+  *((uint32_t *) if_.esp) = argc;
+  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+
+  *((uint32_t *) if_.esp) = 0;
+  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -74,6 +113,14 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+}
+
+static void
+push_str_to_stack(const char* str, void** esp)
+{
+  size_t len = strlen(str);
+  strlcpy((char *) *esp, str, len);
+  *esp = (void *) ((char *) *esp + len + 1);
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -439,7 +486,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
