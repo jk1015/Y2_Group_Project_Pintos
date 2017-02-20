@@ -78,6 +78,8 @@ deref_user_pointer (const void *uaddr, uint32_t size)
         return ptr;
     }
   }
+  printf(
+    "Program attempted to access invalid memory, and has been terminated.\n");
   thread_exit ();
   NOT_REACHED ();
 }

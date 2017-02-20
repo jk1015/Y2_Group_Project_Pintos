@@ -68,9 +68,10 @@ start_process (void *args_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success)
+  if (!success) {
+    palloc_free_page (args);
     thread_exit ();
+  }
 
   /* Tokenize the string */
   uint32_t argc = 1;
@@ -87,14 +88,13 @@ start_process (void *args_)
 
   /* Push argument strings onto stack, in reverse order */
   char *argv[argc];
-  for (int i = argc - 1; i < 0; i--)
+  for (int i = argc - 1; i >= 0; i--)
   {
     push_str_to_stack(tokens[i], &if_.esp);
     argv[argc - 1 - i] = (char *) if_.esp;
   }
-
   /* Word alignment */
-  for (int i = ((uint32_t) if_.esp) % 4; i > 0; i--)
+  for (int i = ((uint32_t) if_.esp) % 4; i < 4 && i != 0; i++)
   {
     push_str_to_stack("", &if_.esp);
   }
@@ -117,6 +117,8 @@ start_process (void *args_)
   /* Push fake return address */
   push_int_to_stack(0, &if_.esp);
 
+  palloc_free_page (args);
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -135,12 +137,16 @@ push_str_to_stack(const char* str, void** esp)
   size_t len = strlen(str);
   char *ptr = (char*) *esp;
   ptr -= len + 1;
-  strlcpy(ptr, str, len);
+  for (size_t i = 0; i < len + 1; i++)
+  {
+    ptr[i] = str[i];
+  }
   *esp = (void *) ptr;
 }
 
 static void
-push_int_to_stack(uint32_t val, void ** esp) {
+push_int_to_stack(uint32_t val, void ** esp)
+{
   uint32_t* ptr = (uint32_t *) *esp;
   ptr--;
   *ptr = val;
