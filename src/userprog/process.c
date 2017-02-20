@@ -23,6 +23,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 
 static void push_str_to_stack(const char* str, void** esp);
+static void push_int_to_stack(uint32_t val, void ** esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -71,6 +72,7 @@ start_process (void *args_)
   if (!success)
     thread_exit ();
 
+  /* Tokenize the string */
   uint32_t argc = 1;
   char *tokens[(strlen(args) / 2)];
   tokens[0] = file_name;
@@ -83,27 +85,37 @@ start_process (void *args_)
     argc++;
   }
 
+  /* Push argument strings onto stack, in reverse order */
   char *argv[argc];
   for (int i = argc - 1; i < 0; i--)
   {
-    argv[argc - 1 - i] = (char *) if_.esp;
     push_str_to_stack(tokens[i], &if_.esp);
+    argv[argc - 1 - i] = (char *) if_.esp;
   }
 
-  *((uint32_t *) if_.esp) = 0;
-  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+  /* Word alignment */
+  for (int i = ((uint32_t) if_.esp) % 4; i > 0; i--)
+  {
+    push_str_to_stack("", &if_.esp);
+  }
 
+  /* Push null pointer sentinel */
+  push_int_to_stack(0, &if_.esp);
+
+  /* Push pointers to argument strings, in reverse order */
   for (uint32_t i = 0; i < argc; i++)
   {
-    *((void **) if_.esp) = (void *) argv[i];
-    if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+    push_int_to_stack((uint32_t) argv[i], &if_.esp);
   }
 
-  *((uint32_t *) if_.esp) = argc;
-  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+  /* Push pointer to the first pointer */
+  push_int_to_stack((uint32_t) if_.esp, &if_.esp);
 
-  *((uint32_t *) if_.esp) = 0;
-  if_.esp = (void *) (((uint32_t *) if_.esp) + 1);
+  /* Push number of arguments */
+  push_int_to_stack(argc, &if_.esp);
+
+  /* Push fake return address */
+  push_int_to_stack(0, &if_.esp);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -115,12 +127,24 @@ start_process (void *args_)
   NOT_REACHED ();
 }
 
+/* Pushes a string onto the stack, and sets the stack pointer to the start of
+   the string. */
 static void
 push_str_to_stack(const char* str, void** esp)
 {
   size_t len = strlen(str);
-  strlcpy((char *) *esp, str, len);
-  *esp = (void *) ((char *) *esp + len + 1);
+  char *ptr = (char*) *esp;
+  ptr -= len + 1;
+  strlcpy(ptr, str, len);
+  *esp = (void *) ptr;
+}
+
+static void
+push_int_to_stack(uint32_t val, void ** esp) {
+  uint32_t* ptr = (uint32_t *) *esp;
+  ptr--;
+  *ptr = val;
+  *esp = (void *) ptr;
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
