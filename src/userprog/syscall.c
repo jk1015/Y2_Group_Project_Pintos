@@ -68,7 +68,6 @@ static void *
 deref_user_pointer (const void *uaddr, uint32_t size)
 {
   // TODO: Check malloc, lock etc. are freed
-  // TODO: Check special cases of strings, buffers, etc.
   if (is_user_vaddr (uaddr))
   {
     if (size == 0 || is_user_vaddr((void *) ((char *) uaddr + size)))
@@ -99,6 +98,7 @@ sys_write(const void* stack) {
   uint32_t size = *((uint32_t *) stack + 3);
 
   //TODO: WHAT‽
+  //TODO: Check valid buffer
 
   void *buffer = *((void **) stack + 2);
 

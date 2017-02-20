@@ -55,6 +55,7 @@ static void
 start_process (void *args_)
 {
   char *args = args_;
+  uint32_t max_args = strlen(args) / 2 + 1;
   char *save_ptr;
   char *file_name = strtok_r(args, " ", &save_ptr);
   struct intr_frame if_;
@@ -75,7 +76,7 @@ start_process (void *args_)
 
   /* Tokenize the string */
   uint32_t argc = 1;
-  char *tokens[(strlen(args) / 2)];
+  char *tokens[max_args];
   tokens[0] = file_name;
 
   char *token;
