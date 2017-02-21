@@ -20,6 +20,7 @@ static void check_user_pointer (const void *uaddr);
 static int32_t sys_halt (const void* stack);
 static int32_t sys_exit (const void* stack);
 static int32_t sys_exec (const void* stack);
+static int32_t sys_wait (const void* stack);
 static int32_t sys_write (const void* stack);
 static int SYSCALL_AMOUNT;
 
@@ -37,7 +38,7 @@ static const struct syscall syscalls[] =
   {SYS_HALT, sys_halt},
   {SYS_EXIT, sys_exit},
   {SYS_EXEC, sys_exec},
-  {SYS_WAIT, NULL},
+  {SYS_WAIT, sys_wait},
   {SYS_CREATE, NULL},
   {SYS_REMOVE, NULL},
   {SYS_OPEN, NULL},
@@ -124,10 +125,17 @@ sys_exec (const void* stack)
   arg_arr[0] = retrieve_ptr ((void*)arg_arr[0]);                        // translating virtual to kernel address
   const char* cmd_line = (const char*)arg_arr[0];
   tid_t tid = process_execute (cmd_line);
-  //TODO: get child process and wait for it to load then return (pid or -1) depending on if it loaded or not
+  //TODO: get child thread and wait for it to load then return (tid or -1) depending on if it loaded or not
   return (-1);
 }
 
+static int32_t
+sys_wait (const void* stack)
+{
+  int arg_arr[1];
+  retrieve_args (stack, arg_arr, 1);
+  return process_wait (arg_arr[0]);
+}
 
 static int32_t
 sys_write (const void* stack)
@@ -183,11 +191,11 @@ int
 retrieve_ptr (const void *vaddr)
 {
   check_user_pointer(vaddr);
-  int i = (int)pagedir_get_page (thread_current ()->pagedir, vaddr);
-  if(!i)
+  int kvaddr = (int)pagedir_get_page (thread_current ()->pagedir, vaddr);
+  if(!kvaddr)
   {
-    printf("Invalid Pointer!\n");
+    throw_invalid_memory_access ();
     thread_exit ();
   }
-  return i;
+  return kvaddr;
 }
