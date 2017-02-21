@@ -109,10 +109,9 @@ sys_halt (const void* stack)
 static int32_t
 sys_exit (const void* stack)
 {
-  //TODO: Wait needs exit_status
   int arg_arr[1];
   retrieve_args (stack, arg_arr, 1);
-  // arg_arr[0] is the exit code
+  thread_current ()->exit_info->exit_code = arg_arr[0];
   thread_exit ();
   NOT_REACHED ();
 }
@@ -182,7 +181,7 @@ retrieve_args (const int *call_num, int arg_arr[], int n)
 {
   for (int i = 0; i < n; i++)
   {
-    int *ptr = (int *)(call_num + 1 + i); 
+    int *ptr = (int *)(call_num + 1 + i);
     arg_arr[i] = (int)deref_user_pointer (ptr, sizeof(int));
   }
 }

@@ -326,6 +326,7 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  intr_disable ();
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -333,7 +334,6 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  intr_disable ();
   list_remove (&thread_current ()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -516,7 +516,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->nice = NICE_DEFAULT;
   t->recent_cpu = convert_int_to_fp (0);
-
+  #ifdef USERPROG
+    list_init (&t->children);
+    t->exit_info = NULL;
+  #endif
   if (thread_mlfqs)
   {
     if (list_empty (&all_list))
