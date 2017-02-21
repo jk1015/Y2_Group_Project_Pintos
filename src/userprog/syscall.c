@@ -26,7 +26,7 @@ struct syscall
 /* Table of supported actions. */
 static const struct syscall syscalls[] =
 {
-  {SYS_HALT, NULL},
+  {SYS_HALT, sys_halt},
   {SYS_EXIT, sys_exit},
   {SYS_EXEC, NULL},
   {SYS_WAIT, NULL},
@@ -85,16 +85,25 @@ deref_user_pointer (const void *uaddr, uint32_t size)
 }
 
 static int32_t
-sys_exit(const void* stack) {
+sys_halt(const void* stack)
+{
+  shutdown_power_off();
+}
+
+static int32_t
+sys_exit(const void* stack)
+{
   //TODO: Wait needs exit_status
   int arg_arr[3];
   retrieve_args (stack, arg_arr, 1);
-  exit (arg_arr[0]);
+  // arg_arr[0] is the exit code
+  thread_exit ();
   NOT_REACHED ();
 }
 
 static int32_t
-sys_write(const void* stack) {
+sys_write(const void* stack)
+{
   int32_t fd    = *((int32_t *) stack + 1);
 
   uint32_t size = *((uint32_t *) stack + 3);
@@ -139,11 +148,4 @@ retrieve_args(int *call_num, int arg_arr[], int n)
     int *ptr = (int *)(call_num + 1 + i); 
     arg_arr[i] = deref_user_pointer(ptr, sizeof(int));
   }
-}
-
-void
-exit(int status)
-{
-  // exit code is status
-  thread_exit ();
 }
