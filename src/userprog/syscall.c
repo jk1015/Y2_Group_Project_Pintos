@@ -77,7 +77,7 @@ deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
   // TODO: Check malloc, lock etc. are freed
   if (is_user_vaddr (uaddr))
   {
-    if (size == 0 || is_user_vaddr((void *) ((char *) uaddr + size)))
+    if (size <= 1 || is_user_vaddr((void *) ((char *) uaddr + size - 1)))
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
       if (ptr != NULL)
@@ -101,7 +101,7 @@ static int32_t
 sys_exit (const void* stack)
 {
   //TODO: Wait needs exit_status
-  UNUSED int32_t exit_status = *((int32_t *) deref_user_pointer(stack, 1, 0));
+  UNUSED int32_t exit_status = *((int32_t *) deref_user_pointer(stack, 1, 1));
   thread_exit ();
   NOT_REACHED ();
 }
@@ -109,9 +109,9 @@ sys_exit (const void* stack)
 static int32_t
 sys_write (const void* stack)
 {
-  int32_t fd    = *((uint32_t *) deref_user_pointer(stack, 1, 0));
+  int32_t fd    = *((uint32_t *) deref_user_pointer(stack, 1, 1));
 
-  uint32_t size = *((uint32_t *) deref_user_pointer(stack, 3, 0));
+  uint32_t size = *((uint32_t *) deref_user_pointer(stack, 3, 1));
 
   //TODO: Check valid buffer
   void *buffer = *((void **) deref_user_pointer(stack, 2, size));
