@@ -6,12 +6,18 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "userprog/process.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
-static void* deref_user_pointer (const void *uaddr, uint32_t size);
 
+static void*
+deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size);
+
+static int32_t sys_halt (const void* stack UNUSED);
 static int32_t sys_exit(const void* stack);
+
 static int32_t sys_write(const void* stack);
+
 static int SYSCALL_AMOUNT;
 
 
@@ -25,7 +31,7 @@ struct syscall
 /* Table of supported actions. */
 static const struct syscall syscalls[] =
 {
-  {SYS_HALT, NULL},
+  {SYS_HALT, sys_halt},
   {SYS_EXIT, sys_exit},
   {SYS_EXEC, NULL},
   {SYS_WAIT, NULL},
@@ -51,13 +57,12 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  void *stack_pointer = deref_user_pointer(f->esp, 0);
-  int syscall_nr = *((int*) stack_pointer);
+  int syscall_nr = *((int *) deref_user_pointer(f->esp, 0, 0));
   for(int i = 0; i < SYSCALL_AMOUNT; i++)
   {
     if(syscalls[i].number == syscall_nr)
     {
-      f->eax = syscalls[i].function(stack_pointer);
+      f->eax = syscalls[i].function(f->esp);
       return;
     }
     ASSERT(i != SYSCALL_AMOUNT - 1);
@@ -65,8 +70,10 @@ syscall_handler (struct intr_frame *f)
 }
 
 static void *
-deref_user_pointer (const void *uaddr, uint32_t size)
+deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
 {
+
+  uaddr = (void *) ((uint32_t *) uaddr + offset);
   // TODO: Check malloc, lock etc. are freed
   if (is_user_vaddr (uaddr))
   {
@@ -84,23 +91,31 @@ deref_user_pointer (const void *uaddr, uint32_t size)
 }
 
 static int32_t
-sys_exit(const void* stack) {
+sys_halt (const void* stack UNUSED)
+{
+  shutdown_power_off ();
+  NOT_REACHED ();
+}
+
+static int32_t
+sys_exit (const void* stack)
+{
   //TODO: Wait needs exit_status
-  UNUSED int32_t exit_status = *((int32_t *) stack + 1);
+  UNUSED int32_t exit_status = *((int32_t *) deref_user_pointer(stack, 1, 0));
   thread_exit ();
   NOT_REACHED ();
 }
 
 static int32_t
-sys_write(const void* stack) {
-  int32_t fd    = *((int32_t *) stack + 1);
+sys_write (const void* stack)
+{
+  int32_t fd    = *((uint32_t *) deref_user_pointer(stack, 1, 0));
 
-  uint32_t size = *((uint32_t *) stack + 3);
+  uint32_t size = *((uint32_t *) deref_user_pointer(stack, 3, 0));
 
-  //TODO: WHAT‽
   //TODO: Check valid buffer
+  void *buffer = *((void **) deref_user_pointer(stack, 2, size));
 
-  void *buffer = *((void **) stack + 2);
 
 
 
