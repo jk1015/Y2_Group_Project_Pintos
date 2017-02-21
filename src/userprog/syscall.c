@@ -9,6 +9,7 @@
 
 static void syscall_handler (struct intr_frame *);
 static void* deref_user_pointer (const void *uaddr, uint32_t size);
+void retrieve_args(int *call_num, int arg_arr[], int n);
 
 static int32_t sys_exit(const void* stack);
 static int32_t sys_write(const void* stack);
@@ -86,8 +87,9 @@ deref_user_pointer (const void *uaddr, uint32_t size)
 static int32_t
 sys_exit(const void* stack) {
   //TODO: Wait needs exit_status
-  UNUSED int32_t exit_status = *((int32_t *) stack + 1);
-  thread_exit ();
+  int arg_arr[3];
+  retrieve_args (stack, arg_arr, 1);
+  exit (arg_arr[0]);
   NOT_REACHED ();
 }
 
@@ -127,4 +129,21 @@ sys_write(const void* stack) {
     return (int32_t) ret_size;
   }
   return 0;
+}
+
+// gets arguments from stack
+void
+retrieve_args(int *call_num, int arg_arr[], int n)
+{
+  for (int i = 0; i < n; i++) {
+    int *ptr = (int *)(call_num + 1 + i); 
+    arg_arr[i] = deref_user_pointer(ptr, sizeof(int));
+  }
+}
+
+void
+exit(int status)
+{
+  // exit code is status
+  thread_exit ();
 }
