@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
@@ -9,16 +10,18 @@
 #include "devices/shutdown.h"
 
 
+
 #define invalid_memory_error_message "Program attempted to access invalid memory, and has been terminated.\n"
 
 #define throw_invalid_memory_access() (printf(invalid_memory_error_message));(thread_exit ())
 
 static void syscall_handler (struct intr_frame *);
-static void check_user_pointer (const void *uaddr);
+static void check_user_pointer
+(const void *uaddr, uint32_t offset, uint32_t size);
 static void*
-deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size);
+convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size);
 
-static int32_t sys_halt (const void* stack);
+static int32_t sys_halt (const void* stack UNUSED);
 static int32_t sys_exit (const void* stack);
 static int32_t sys_exec (const void* stack);
 static int32_t sys_wait (const void* stack);
@@ -63,7 +66,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f)
 {
-  int syscall_nr = *((int *) deref_user_pointer(f->esp, 0, 0));
+  int syscall_nr = *((int *) convert_user_pointer(f->esp, 0, 0));
   for(int i = 0; i < SYSCALL_AMOUNT; i++)
   {
     if(syscalls[i].number == syscall_nr)
@@ -76,22 +79,32 @@ syscall_handler (struct intr_frame *f)
 }
 
 static void
-check_user_pointer (const void *uaddr)
+check_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
 {
-  if (!is_user_vaddr(uaddr) || !pagedir_get_page(thread_current()->pagedir, uaddr)) {
-    throw_invalid_memory_access ();
+  uaddr = (uint32_t *) uaddr + offset;
+  void* end_of_buffer = (char *) uaddr + size - 1;
+
+  if (!is_user_vaddr(uaddr) ||
+      !pagedir_get_page(thread_current()->pagedir, uaddr) ||
+      !is_user_vaddr(end_of_buffer) ||
+      !pagedir_get_page(thread_current()->pagedir, end_of_buffer))
+  {
+    thread_exit ();
+    NOT_REACHED ();
   }
 }
 
+/* Converts a user pointer to its location in kernel memory after checking if
+   the memory access is valid. Checks a buffer by setting the size field > 0  */
+
 static void *
-deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
+convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
 {
 
-  uaddr = (void *) ((uint32_t *) uaddr + offset);
-  // TODO: Check malloc, lock etc. are freed
+  uaddr = (uint32_t *) uaddr + offset;
   if (is_user_vaddr (uaddr))
   {
-    if (size <= 1 || is_user_vaddr((void *) ((char *) uaddr + size - 1)))
+    if (size <= 0 || is_user_vaddr((char *) uaddr + size - 1))
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
       if (ptr != NULL)
@@ -99,6 +112,7 @@ deref_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
     }
   }
   //throw_invalid_memory_access ();
+  thread_exit ();
   NOT_REACHED ();
 }
 
@@ -112,9 +126,9 @@ sys_halt (const void* stack UNUSED)
 static int32_t
 sys_exit (const void* stack)
 {
-  int32_t exit_code = *((int32_t *) deref_user_pointer(stack, 1, 1));
-  thread_current ()->exit_info->exit_code = exit_code;
+  int32_t exit_code = *((int32_t *) convert_user_pointer(stack, 1, 0));
 
+  thread_current ()->exit_info->exit_code = exit_code;
   thread_exit ();
   NOT_REACHED ();
 }
@@ -123,36 +137,30 @@ sys_exit (const void* stack)
 static int32_t
 sys_exec (const void* stack)
 {
-  /*
-  int arg_arr[1];
-  retrieve_args (stack, arg_arr, 1);
-  arg_arr[0] = retrieve_ptr ((void*)arg_arr[0]);  // translating virtual to kernel address
-  const char* cmd_line = (const char*)arg_arr[0];
+  char* cmd_line = *((char **) convert_user_pointer(stack, 1, 0));
+  check_user_pointer(stack, 1, strlen(cmd_line));
+
   tid_t tid = process_execute (cmd_line);
-  //TODO: get child thread and wait for it to load then return (tid or -1) depending on if it loaded or not
-  */
-  return (-1);
+  if (tid != TID_ERROR)
+    return tid;
+
+  return -1;
 }
 
 static int32_t
 sys_wait (const void* stack)
 {
-  /*
-  int arg_arr[1];
-  retrieve_args (stack, arg_arr, 1);
-  return process_wait (arg_arr[0]);
-  */
-  return(-1);
+  int pid = *((int *) convert_user_pointer(stack, 1, 0));
+
+  return process_wait (pid);
 }
 
 static int32_t
 sys_write (const void* stack)
 {
-  int32_t fd    = *((uint32_t *) deref_user_pointer(stack, 1, 1));
-
-  uint32_t size = *((uint32_t *) deref_user_pointer(stack, 3, 1));
-
-  void *buffer = *((void **) deref_user_pointer(stack, 2, size));
+  int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
+  uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
+  void *buffer = *((void **) convert_user_pointer(stack, 2, size));
 
   uint32_t ret_size;
 
