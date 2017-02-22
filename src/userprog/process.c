@@ -192,10 +192,10 @@ push_int_to_stack(uint32_t val, void ** esp)
 int
 process_wait (tid_t child_pid)
 {
-  struct list children = thread_current ()->children;
+  struct list* children = &thread_current ()->children;
 
   struct list_elem* e;
-  for (e = list_begin (&children); e != list_end (&children);
+  for (e = list_begin (children); e != list_end (children);
        e = list_next (e))
     {
       struct child_info *info = list_entry (e, struct child_info, elem);
