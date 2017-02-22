@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -40,21 +41,46 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
+
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char name_copy[16];
+  strlcpy (name_copy, file_name, sizeof(name_copy));
+  char* save_ptr;
+
+  struct child_info* exit_info = malloc(sizeof(struct child_info));
+  if (exit_info == NULL)
+    PANIC ("Out of memory!");
+  list_push_back (&thread_current ()->children, &exit_info->elem);
+  sema_init(&exit_info->sema, 0);
+  exit_info->exit_code = -1;
+  exit_info->is_parent_dead = false;
+  void *args[2] = {exit_info, fn_copy};
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (
+    strtok_r (name_copy, " ", &save_ptr), PRI_DEFAULT, start_process, args);
   if (tid == TID_ERROR)
+  {
+    free (exit_info);
     palloc_free_page (fn_copy);
+  }
+  else
+  {
+    exit_info->pid = tid;
+  }
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *args_)
+start_process (void *arguments)
 {
-  char *args = args_;
+  struct child_info* exit_info = ((void **) arguments)[0];
+  char* args = ((void **) arguments)[1];
+  thread_current ()->exit_info = exit_info;
+
   uint32_t max_args = strlen(args) / 2 + 1;
   char *save_ptr;
   char *file_name = strtok_r(args, " ", &save_ptr);
@@ -164,9 +190,24 @@ push_int_to_stack(uint32_t val, void ** esp)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_pid)
 {
-  for(;;);
+  struct list children = thread_current ()->children;
+
+  struct list_elem* e;
+  for (e = list_begin (&children); e != list_end (&children);
+       e = list_next (e))
+    {
+      struct child_info *info = list_entry (e, struct child_info, elem);
+      if(info->pid == child_pid)
+      {
+        sema_down(&info->sema);
+        int exit_code = info->exit_code;
+        list_remove(e);
+        free(info);
+        return exit_code;
+      }
+    }
   return -1;
 }
 
@@ -176,8 +217,29 @@ process_exit (void)
 {
   //TODO: Release locks and mallocs etc.
   struct thread *cur = thread_current ();
+
+  struct child_info *exit_info = cur->exit_info;
   uint32_t *pd;
 
+  printf("%s: exit(%d)\n", cur->name, exit_info->exit_code);
+
+  if(exit_info != NULL)
+  {
+    if (exit_info->is_parent_dead)
+      free (exit_info);
+    else
+      sema_up(&exit_info->sema);
+  }
+
+  struct list* children = &cur->children;
+
+  struct list_elem* e;
+  for (e = list_begin (children); e != list_end (children);
+       e = list_next (e))
+    {
+      struct child_info *info = list_entry (e, struct child_info, elem);
+      info->is_parent_dead = true;
+    }
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;

@@ -100,11 +100,14 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     int nice;
-    fixed_point_t recent_cpu; 
+    fixed_point_t recent_cpu;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list children;               /* List of child_info of each child. */
+    struct child_info* exit_info;       /* Pointer to the parent's child_info
+                                           for this thread. */
 #endif
 
     /* Owned by thread.c. */
