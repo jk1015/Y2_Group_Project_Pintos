@@ -95,7 +95,7 @@ deref_user_pointer (const void *uaddr, uint32_t size)
         return ptr;
     }
   }
-  throw_invalid_memory_access ();
+  //throw_invalid_memory_access ();
   NOT_REACHED ();
 }
 

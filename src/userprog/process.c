@@ -44,6 +44,9 @@ process_execute (const char *file_name)
 
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char name_copy[16];
+  strlcpy (name_copy, file_name, sizeof(name_copy));
+  char* save_ptr;
 
   struct child_info* exit_info = malloc(sizeof(struct child_info));
   if (exit_info == NULL)
@@ -55,7 +58,8 @@ process_execute (const char *file_name)
   void *args[2] = {exit_info, fn_copy};
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, args);
+  tid = thread_create (
+    strtok_r (name_copy, " ", &save_ptr), PRI_DEFAULT, start_process, args);
   if (tid == TID_ERROR)
   {
     free (exit_info);
@@ -216,6 +220,8 @@ process_exit (void)
 
   struct child_info *exit_info = cur->exit_info;
   uint32_t *pd;
+
+  printf("%s: exit(%d)\n", cur->name, exit_info->exit_code);
 
   if(exit_info != NULL)
   {
