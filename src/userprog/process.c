@@ -225,10 +225,10 @@ process_exit (void)
       sema_up(&exit_info->sema);
   }
 
-  struct list children = cur->children;
+  struct list* children = &cur->children;
 
   struct list_elem* e;
-  for (e = list_begin (&children); e != list_end (&children);
+  for (e = list_begin (children); e != list_end (children);
        e = list_next (e))
     {
       struct child_info *info = list_entry (e, struct child_info, elem);

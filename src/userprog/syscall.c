@@ -109,9 +109,8 @@ sys_halt (const void* stack)
 static int32_t
 sys_exit (const void* stack)
 {
-  int arg_arr[1];
-  retrieve_args (stack, arg_arr, 1);
-  thread_current ()->exit_info->exit_code = arg_arr[0];
+  int exit_code = *((int32_t *) stack + 1);
+  thread_current ()->exit_info->exit_code = exit_code;
   thread_exit ();
   NOT_REACHED ();
 }
