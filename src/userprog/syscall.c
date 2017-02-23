@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
@@ -54,7 +55,7 @@ static const struct syscall syscalls[] =
   {SYS_REMOVE, sys_remove},
   {SYS_OPEN, sys_open},
   {SYS_FILESIZE, sys_filesize},
-  {SYS_READ, NULL},
+  {SYS_READ, sys_read},
   {SYS_WRITE, sys_write},
   {SYS_SEEK, sys_seek},
   {SYS_TELL, sys_tell},
@@ -197,6 +198,9 @@ sys_write (const void* stack)
 
   uint32_t ret_size;
 
+  if (fd == 0)
+    return -1;
+
   if (fd == 1)
   {
     ret_size = size;
@@ -217,7 +221,44 @@ sys_write (const void* stack)
     }
     return (int32_t) ret_size;
   }
-  return 0;
+
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  ret_size = file_write (reference, buffer, size);
+  lock_release(filesys_lock);
+}
+
+static int32_t
+sys_read (const void* stack)
+{
+  int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
+  uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
+  uint8_t *buffer = *((uint8_t **) convert_user_pointer(stack, 2, size));
+
+  uint8_t ret_size;
+
+  if (fd == 1)
+    return -1;
+
+  if (fd == 0)
+  {
+    ret_size = size;
+    while(size--)
+    {
+      buffer[0] = input_getc();
+      buffer++;
+    }
+    return ret_size;
+  }
+
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  ret_size = file_read (reference, buffer, size);
+  lock_release(filesys_lock);
 }
 
 //bool create (const char * file , unsigned initial_size )
