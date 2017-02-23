@@ -2,5 +2,6 @@
 #define USERPROG_SYSCALL_H
 
 void syscall_init (void);
+#define MAX_FILES_OPENED 100
 
 #endif /* userprog/syscall.h */

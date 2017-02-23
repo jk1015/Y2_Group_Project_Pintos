@@ -9,6 +9,7 @@
 #include "userprog/process.h"
 #include "devices/shutdown.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
 
 
 
@@ -31,6 +32,7 @@ static int32_t sys_create (const void* stack);
 static int32_t sys_remove (const void* stack);
 
 static int SYSCALL_AMOUNT;
+static int next_fd;
 
 
 /* A syscall. */
@@ -49,20 +51,22 @@ static const struct syscall syscalls[] =
   {SYS_WAIT, sys_wait},
   {SYS_CREATE, sys_create},
   {SYS_REMOVE, sys_remove},
-  {SYS_OPEN, NULL},
-  {SYS_FILESIZE, NULL},
+  {SYS_OPEN, sys_open},
+  {SYS_FILESIZE, sys_filesize},
   {SYS_READ, NULL},
   {SYS_WRITE, sys_write},
-  {SYS_SEEK, NULL},
-  {SYS_TELL, NULL},
-  {SYS_CLOSE, NULL}
+  {SYS_SEEK, sys_seek},
+  {SYS_TELL, sys_tell},
+  {SYS_CLOSE, sys_close}
 };
 
+static (struct file*) references[MAX_FILES_OPENED];
 
 void
 syscall_init (void)
 {
   SYSCALL_AMOUNT = (uint32_t) sizeof(syscalls)/sizeof(syscalls[0]);
+  next_fd = 2; // 0 and 1 are reserved for stdin and stdout
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -79,6 +83,23 @@ syscall_handler (struct intr_frame *f)
     }
     ASSERT(i != SYSCALL_AMOUNT - 1);
   }
+}
+
+static void
+get_new_fd (struct file *reference)
+{
+  int fd = next_fd++;
+  references[fd] = reference;
+  return fd;
+}
+
+/* check_fd verifies that fd exists and that the process calling 
+   can access it. */
+
+static bool
+check_fd (int fd)
+{
+  return (fd < next_fd) && (fd > 1);
 }
 
 static void
@@ -213,4 +234,69 @@ sys_remove (const void* stack)
   bool answer = filesys_remove(file_name);
   // unlock
   return answer;
+}
+
+//int open (const char * file )
+static int32_t
+sys_open (const void* stack)
+{
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+  // lock
+  struct file *answer = filesys_open(file_name);
+  if(answer == 0)
+    return -1;
+  fd = get_new_fd(answer);
+  // unlock
+  return fd;
+}
+
+//int filesize (int fd )
+static int32_t
+sys_filesize (const void* stack)
+{
+  int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  check_fd(fd);
+  // lock
+  int answer = file_length(references[fd]);
+  // unlock
+  return answer;
+}
+
+//void seek (int fd , unsigned position )
+static int32_t
+sys_seek (const void* stack)
+{
+  int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  int potition = *((int *) convert_user_pointer(stack, 2, 0));
+  if (position < 0)
+    return -1;
+  check_fd(fd);
+  // lock
+  file_seek(references[fd], position);
+  // unlock
+  return 0;
+}
+
+//unsigned tell (int fd )
+static int32_t
+sys_tell (const void* stack)
+{
+  int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  check_fd(fd);
+  // lock
+  int answer = file_tell(references[fd]);
+  // unlock
+  return answer;
+}
+
+//void close (int fd )
+static int32_t
+sys_close (const void* stack)
+{
+  int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  check_fd(fd);
+  // lock
+  file_close(references[fd]);
+  // unlock
+  return 0;
 }
