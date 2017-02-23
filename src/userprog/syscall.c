@@ -29,6 +29,7 @@ static int32_t sys_exit (const void* stack);
 static int32_t sys_exec (const void* stack);
 static int32_t sys_wait (const void* stack);
 static int32_t sys_write (const void* stack);
+static int32_t sys_read (const void* stack);
 static int32_t sys_create (const void* stack);
 static int32_t sys_remove (const void* stack);
 static int32_t sys_open (const void* stack);
@@ -104,7 +105,7 @@ get_new_fd (struct file *reference)
 /* check_fd verifies that fd exists and that the process calling 
    can access it. If it can, return the file structure for further use. */
 
-static bool
+static struct file*
 check_fd (int fd)
 {
   if ((fd < next_fd) && (fd > 1) && (references[fd]))
@@ -225,9 +226,10 @@ sys_write (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   ret_size = file_write (reference, buffer, size);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
+  return ret_size;
 }
 
 static int32_t
@@ -256,9 +258,10 @@ sys_read (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   ret_size = file_read (reference, buffer, size);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
+  return ret_size;
 }
 
 //bool create (const char * file , unsigned initial_size )
@@ -269,9 +272,9 @@ sys_create (const void* stack)
   int size = *((int *) convert_user_pointer(stack, 2, 0));
   if (size < 0) // size must be unsigned
     return false;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   bool answer = filesys_create(file_name, size);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return answer;
 }
 
@@ -280,9 +283,9 @@ static int32_t
 sys_remove (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   bool answer = filesys_remove(file_name);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return answer;
 }
 
@@ -290,13 +293,15 @@ sys_remove (const void* stack)
 static int32_t
 sys_open (const void* stack)
 {
+  int fd;
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   struct file *answer = filesys_open(file_name);
   if(answer == 0)
-    return -1;
-  int fd = get_new_fd(answer);
-  lock_release(filesys_lock);
+    fd = -1;
+  else
+    fd = get_new_fd(answer);
+  lock_release(&filesys_lock);
   return fd;
 }
 
@@ -308,9 +313,9 @@ sys_filesize (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   int answer = file_length(reference);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return answer;
 }
 
@@ -325,9 +330,9 @@ sys_seek (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   file_seek(reference, position);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return 0;
 }
 
@@ -339,9 +344,9 @@ sys_tell (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   int answer = file_tell(reference);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return answer;
 }
 
@@ -353,8 +358,8 @@ sys_close (const void* stack)
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
-  lock_acquire(filesys_lock);
+  lock_acquire(&filesys_lock);
   file_close(reference);
-  lock_release(filesys_lock);
+  lock_release(&filesys_lock);
   return 0;
 }
