@@ -8,6 +8,7 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "devices/shutdown.h"
+#include "filesys/filesys.h"
 
 
 
@@ -26,6 +27,8 @@ static int32_t sys_exit (const void* stack);
 static int32_t sys_exec (const void* stack);
 static int32_t sys_wait (const void* stack);
 static int32_t sys_write (const void* stack);
+static int32_t sys_create (const void* stack);
+static int32_t sys_remove (const void* stack);
 
 static int SYSCALL_AMOUNT;
 
@@ -44,8 +47,8 @@ static const struct syscall syscalls[] =
   {SYS_EXIT, sys_exit},
   {SYS_EXEC, sys_exec},
   {SYS_WAIT, sys_wait},
-  {SYS_CREATE, NULL},
-  {SYS_REMOVE, NULL},
+  {SYS_CREATE, sys_create},
+  {SYS_REMOVE, sys_remove},
   {SYS_OPEN, NULL},
   {SYS_FILESIZE, NULL},
   {SYS_READ, NULL},
@@ -185,4 +188,29 @@ sys_write (const void* stack)
     return (int32_t) ret_size;
   }
   return 0;
+}
+
+//bool create (const char * file , unsigned initial_size )
+static int32_t
+sys_create (const void* stack)
+{
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+  int size = *((int *) convert_user_pointer(stack, 2, 0));
+  if (size < 0) // size must be unsigned
+    return false;
+  // lock
+  answer = filesys_create(file_name, size);
+  // unlock
+  return answer;
+}
+
+//bool remove (const char * file )
+static int32_t
+sys_remove (const void* stack)
+{
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+  // lock
+  answer = filesys_remove(file_name, size);
+  // unlock
+  return answer;
 }
