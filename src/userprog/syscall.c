@@ -33,6 +33,7 @@ static int32_t sys_remove (const void* stack);
 
 static int SYSCALL_AMOUNT;
 static int next_fd;
+struct lock filesys_lock;
 
 
 /* A syscall. */
@@ -67,6 +68,7 @@ syscall_init (void)
 {
   SYSCALL_AMOUNT = (uint32_t) sizeof(syscalls)/sizeof(syscalls[0]);
   next_fd = 2; // 0 and 1 are reserved for stdin and stdout
+  lock_init(&filesys_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -85,6 +87,11 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
+static void 
+illegal_fd ()
+{
+}
+
 static void
 get_new_fd (struct file *reference)
 {
@@ -94,12 +101,14 @@ get_new_fd (struct file *reference)
 }
 
 /* check_fd verifies that fd exists and that the process calling 
-   can access it. */
+   can access it. If it can, return the file structure for further use. */
 
 static bool
 check_fd (int fd)
 {
-  return (fd < next_fd) && (fd > 1);
+  if ((fd < next_fd) && (fd > 1) && (references[fd]))
+    return references[fd];
+  return 0;
 }
 
 static void
@@ -219,9 +228,9 @@ sys_create (const void* stack)
   int size = *((int *) convert_user_pointer(stack, 2, 0));
   if (size < 0) // size must be unsigned
     return false;
-  // lock
+  lock_acquire(filesys_lock);
   bool answer = filesys_create(file_name, size);
-  // unlock
+  lock_release(filesys_lock);
   return answer;
 }
 
@@ -230,9 +239,9 @@ static int32_t
 sys_remove (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
-  // lock
+  lock_acquire(filesys_lock);
   bool answer = filesys_remove(file_name);
-  // unlock
+  lock_release(filesys_lock);
   return answer;
 }
 
@@ -241,12 +250,12 @@ static int32_t
 sys_open (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
-  // lock
+  lock_acquire(filesys_lock);
   struct file *answer = filesys_open(file_name);
   if(answer == 0)
     return -1;
   fd = get_new_fd(answer);
-  // unlock
+  lock_release(filesys_lock);
   return fd;
 }
 
@@ -255,10 +264,12 @@ static int32_t
 sys_filesize (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
-  check_fd(fd);
-  // lock
-  int answer = file_length(references[fd]);
-  // unlock
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  int answer = file_length(reference);
+  lock_release(filesys_lock);
   return answer;
 }
 
@@ -270,10 +281,12 @@ sys_seek (const void* stack)
   int potition = *((int *) convert_user_pointer(stack, 2, 0));
   if (position < 0)
     return -1;
-  check_fd(fd);
-  // lock
-  file_seek(references[fd], position);
-  // unlock
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  file_seek(reference, position);
+  lock_release(filesys_lock);
   return 0;
 }
 
@@ -282,10 +295,12 @@ static int32_t
 sys_tell (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
-  check_fd(fd);
-  // lock
-  int answer = file_tell(references[fd]);
-  // unlock
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  int answer = file_tell(reference);
+  lock_release(filesys_lock);
   return answer;
 }
 
@@ -294,9 +309,11 @@ static int32_t
 sys_close (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
-  check_fd(fd);
-  // lock
-  file_close(references[fd]);
-  // unlock
+  struct file *reference = check_fd(fd);
+  if(reference == 0)
+    return -1;
+  lock_acquire(filesys_lock);
+  file_close(reference);
+  lock_release(filesys_lock);
   return 0;
 }
