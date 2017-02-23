@@ -199,7 +199,7 @@ sys_create (const void* stack)
   if (size < 0) // size must be unsigned
     return false;
   // lock
-  answer = filesys_create(file_name, size);
+  bool answer = filesys_create(file_name, size);
   // unlock
   return answer;
 }
@@ -210,7 +210,7 @@ sys_remove (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
   // lock
-  answer = filesys_remove(file_name, size);
+  bool answer = filesys_remove(file_name);
   // unlock
   return answer;
 }
