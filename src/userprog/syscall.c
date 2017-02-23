@@ -31,6 +31,11 @@ static int32_t sys_wait (const void* stack);
 static int32_t sys_write (const void* stack);
 static int32_t sys_create (const void* stack);
 static int32_t sys_remove (const void* stack);
+static int32_t sys_open (const void* stack);
+static int32_t sys_filesize (const void* stack);
+static int32_t sys_seek (const void* stack);
+static int32_t sys_tell (const void* stack);
+static int32_t sys_close (const void* stack);
 
 static int SYSCALL_AMOUNT;
 static int next_fd;
@@ -62,7 +67,7 @@ static const struct syscall syscalls[] =
   {SYS_CLOSE, sys_close}
 };
 
-static (struct file*) references[MAX_FILES_OPENED];
+static struct file* references[MAX_FILES_OPENED];
 
 void
 syscall_init (void)
@@ -88,12 +93,7 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
-static void 
-illegal_fd ()
-{
-}
-
-static void
+static int
 get_new_fd (struct file *reference)
 {
   int fd = next_fd++;
@@ -295,7 +295,7 @@ sys_open (const void* stack)
   struct file *answer = filesys_open(file_name);
   if(answer == 0)
     return -1;
-  fd = get_new_fd(answer);
+  int fd = get_new_fd(answer);
   lock_release(filesys_lock);
   return fd;
 }
@@ -319,7 +319,7 @@ static int32_t
 sys_seek (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
-  int potition = *((int *) convert_user_pointer(stack, 2, 0));
+  int position = *((int *) convert_user_pointer(stack, 2, 0));
   if (position < 0)
     return -1;
   struct file *reference = check_fd(fd);
