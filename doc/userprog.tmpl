@@ -1,8 +1,8 @@
-             +-------------------------+
-             |         OS 211          |
-             |  TASK 2: USER PROGRAMS  |
-             |     DESIGN DOCUMENT     |
-             +-------------------------+
++-------------------------+
+|         OS 211          |
+|  TASK 2: USER PROGRAMS  |
+|     DESIGN DOCUMENT     |
++-------------------------+
 
 ---- GROUP ----
 
@@ -22,135 +22,250 @@ Paul Crestez        <pmc15@ic.ac.uk>
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
-               ARGUMENT PASSING
-               ================
+  ARGUMENT PASSING
+  ================
 
 ---- DATA STRUCTURES ----
 
 >> A1: (2 marks)
->> Copy here the declaration of each new or changed `struct' or `struct' member, 
->> global or static variable, `typedef', or enumeration. Identify the purpose of 
+>> Copy here the declaration of each new or changed `struct' or `struct' member,
+>> global or static variable, `typedef', or enumeration. Identify the purpose of
 >> each in 25 words or less.
+
+None.
 
 ---- ALGORITHMS ----
 
 >> A2: (8 marks)
 >> Briefly describe how you implemented argument parsing. In particular you
->> should mention how you arrange for the elements of argv[] to be in the right 
+>> should mention how you arrange for the elements of argv[] to be in the right
 >> order and how you avoid overflowing the stack page?
+
+Firstly, start_process() tokenises the command line string and stores a pointer
+to each token in an array, counting the number of arguments as it goes. Then,
+the function loops through this token array in reverse order. Each iteration,
+the stack pointer is decremented by the length of the argument string, and the
+argument is copied onto the stack at the stack pointer. A copy of the stack
+pointer is added to a new array of pointers. Null bytes are pushed onto the
+stack to align the following words, and a null pointer sentinel is pushed. The
+array of pointers is added to the stack one by one, in the same order that they
+were added to the array previously. Then, a pointer to the first pointer (the
+last one pushed) is pushed, the number of arguments is pushed, and a fake return
+address is pushed.
+
+We avoid overflowing the stack page by bounding the size of our original array
+of tokens. We bound this to the maximum number of possible tokens in the given
+string, which is half the length of the string, plus one.
 
 ---- RATIONALE ----
 
 >> A3: (5 marks)
 >> Why does Pintos implement strtok_r() but not strtok()?
 
+strtok() uses global data to carry around the pointer to the current position of
+the tokenised string. This makes it unsafe in threaded programs as two threads
+using the function may override each others position. strtok_r() takes a
+pointer, allowing each thread to pass its own pointer to the function.
+
+
 >> A4: (10 marks)
->> In Pintos, the kernel separates commands into a executable name and 
->> arguments. In Unix-like systems, the shell does this separation. Identify 
+>> In Pintos, the kernel separates commands into a executable name and
+>> arguments. In Unix-like systems, the shell does this separation. Identify
 >> at least two advantages of the Unix approach.
 
-                 SYSTEM CALLS
-                 ============
+    SYSTEM CALLS
+    ============
 
 ---- DATA STRUCTURES ----
 
->> B1: (10 marks) 
->> Copy here the declaration of each new or changed `struct' or `struct' member, 
->> global or static variable, `typedef', or enumeration. Identify the purpose of 
+>> B1: (10 marks)
+>> Copy here the declaration of each new or changed `struct' or `struct' member,
+>> global or static variable, `typedef', or enumeration. Identify the purpose of
 >> each in 25 words or less.
 
-// threads/thread.h
-/* Thread structure was expanded with */
-struct file *source;
-/* Which keeps the executable open until process terminates. */
-int next_fd;
-/* Used for generating unique fd. Initialised to 2.
-   Allows extensions, such as reserving fd = 2 for stderr and initialise
-   next_fd to 3 instead. */
-struct file *references[MAX_FILES_OPENED];
-/* Stores the handler of each file descriptor. */
+// File management
+struct fd_reference
+{
+struct file* reference;
+tid_t pid;
+} /* binds a file handler to a process. */
 
-// userprog/syscall.h
+static int next_fd;
+/* Used for generating unique fd. Initialised to 2.
+Allows extensions, such as reserving fd = 2 for stderr and initialise
+next_fd to 3 instead. */
+
 struct lock filesys_lock; /* Used for syncronising file access. */
-#define MAX_FILES_OPENED 128 /* Max number of files that can be opened. */
 
 static struct fd_reference references[MAX_FILES_OPENED];
 /* Stores information about each file descriptor. */
 
+
+thread.h:
+
+struct thread
+{
+int next_fd;
+Used for generating unique fd. Initialised to 2.
+Allows extensions, such as reserving fd = 2 for stderr and initialise
+next_fd to 3 instead.
+struct file *references[MAX_FILES_OPENED];
+A list of all the files opened by the current process.
+struct file *source;
+Keeps the executable open until the process terminates.
+struct list children;
+A list of a process' children and the information about them.
+struct child_info* exit_info;
+A pointer to the information about this process, which is in the parent's
+list of children.
+}
+
+process.h:
+
+struct child_info
+{
+tid_t pid;
+struct list_elem elem;
+struct semaphore sema;
+bool is_other_dead;
+struct semaphore load_sema;
+bool load_success;
+int exit_code;
+};
+Represents the child of a thread. Used for process_wait.
+
+syscall.h:
+
+#define MAX_FILES_OPENED 128
+Max number of files that can be opened.
+struct lock filesys_lock;
+Used for synchronising file access.
+static int SYSCALL_AMOUNT;
+The number of different syscalls.
+struct syscall
+{
+int number;
+int32_t (*function) (const void *argv);
+};
+A struct representing a system call, containing its call number and a function
+pointer to the function that handles it.
+static const struct syscall syscalls[] =
+{
+{SYS_HALT, sys_halt},
+...
+{SYS_CLOSE, sys_close}
+};
+A list of syscall structs. This maps system calls to functions.
+
 >> B2: (5 marks)
->> Describe how you associate file descriptors with open files. Are your file 
+>> Describe how you associate file descriptors with open files. Are your file
 >> descriptors unique within the entire OS or just within a single process?
 
-Each thread holds a map where file descriptors are indexes and the value are
-file handler references. File descriptors are unique for the current process,
-but they can repeat within the operating system.
+The association is a simple map contained within references[], where
+references[fd] holds the file information and process id for fd file descriptor.
+File descriptors are unique within the entire OS, but each one of them
+is bound to one process.
 
 ---- ALGORITHMS ----
 
 >> B3: (5 marks)
 >> Describe how your code ensures safe memory access of user provided data from
->> within the kernel. 
+>> within the kernel.
 
 >> B4: (5 marks)
->> Suppose a system call passes the kernel a pointer to a full page 
->> (4,096 bytes) of data that has to be copied from user space. What is the 
+>> Suppose a system call passes the kernel a pointer to a full page
+>> (4,096 bytes) of data that has to be copied from user space. What is the
 >> least and the greatest possible number of inspections of the page table
->> (e.g. calls to pagedir_get_page()) that might result? What about for a system 
->> call that passes a pointer to only 2 bytes of data? How might you improve 
+>> (e.g. calls to pagedir_get_page()) that might result? What about for a system
+>> call that passes a pointer to only 2 bytes of data? How might you improve
 >> these numbers?
 
 >> B5: (8 marks)
->> Describe your implementation of the "wait" system call and how it interacts 
+>> Describe your implementation of the "wait" system call and how it interacts
 >> with process termination for both the parent and child.
 
+When a new child process is executed, a child_info struct is created, containing
+all the required information for the parent and child. It contains the pid of
+the child, the child's exit code, a flag indicating whether either thread has
+exited, and the semaphore that the parent will wait for (initialised at zero).
+This struct is added to a list held by the parent, and the child holds a pointer
+to the struct. This struct has to be assigned memory using malloc, so that it is
+not destroyed until it is no longer needed.
+
+When the parent calls wait, it iterates through its list of children until it
+finds the child_info struct for the corresponding pid. It then calls sema_down
+on the semaphore from the struct. Then, when the child exits, it stores its exit
+code in its child_info, and ups the semaphore. The parent can then retrieve the
+exit code from its child, free the struct, and remove it from the list of
+children.
+
 >> B6: (5 marks)
->> Any access to user program memory at a user-specified address can fail due to 
->> a bad pointer value. Such accesses must cause the process to be terminated. 
->> System calls are fraught with such accesses, e.g. a "write" system call 
->> requires reading the system call number from the user stack, then each of the 
+>> Any access to user program memory at a user-specified address can fail due to
+>> a bad pointer value. Such accesses must cause the process to be terminated.
+>> System calls are fraught with such accesses, e.g. a "write" system call
+>> requires reading the system call number from the user stack, then each of the
 >> call's three arguments, then an arbitrary amount of user memory, and any of
->> these can fail at any point. This poses a design and error-handling problem: 
->> how do you best avoid obscuring the primary function of code in a morass of 
->> error-handling? Furthermore, when an error is detected, how do you ensure 
->> that all temporarily allocated resources (locks, buffers, etc.) are freed? 
->> In a paragraph, describe the strategy or strategies you adopted for managing 
+>> these can fail at any point. This poses a design and error-handling problem:
+>> how do you best avoid obscuring the primary function of code in a morass of
+>> error-handling? Furthermore, when an error is detected, how do you ensure
+>> that all temporarily allocated resources (locks, buffers, etc.) are freed?
+>> In a paragraph, describe the strategy or strategies you adopted for managing
 >> these issues.
 
 ---- SYNCHRONIZATION ----
 
 >> B7: (5 marks)
->> The "exec" system call returns -1 if loading the new executable fails, so it 
->> cannot return before the new executable has completed loading. How does your 
->> code ensure this? How is the load success/failure status passed back to the 
+>> The "exec" system call returns -1 if loading the new executable fails, so it
+>> cannot return before the new executable has completed loading. How does your
+>> code ensure this? How is the load success/failure status passed back to the
 >> thread that calls "exec"?
 
+The child_info struct that is used for storing the information about the
+children of a process contains a semaphore initialised at zero and a flag that
+are used for loading. After the child thread is created, the parent downs the
+semaphore. Then, when the child has finished loading, it sets the flag
+indicating whether it loaded successfully and ups the semaphore. The parent then
+can access this flag and returns -1 if the process didn't load successfully.
+
 >> B8: (5 marks)
->> Consider parent process P with child process C. How do you ensure proper 
->> synchronization and avoid race conditions when P calls wait(C) before or 
->> after C exits? How do you ensure that all resources are freed in each case? 
->> How about when P terminates, without waiting, before or after C exits? Your 
+>> Consider parent process P with child process C. How do you ensure proper
+>> synchronization and avoid race conditions when P calls wait(C) before or
+>> after C exits? How do you ensure that all resources are freed in each case?
+>> How about when P terminates, without waiting, before or after C exits? Your
 >> answer must cover all four cases mentioned above and address resource freeing.
+
+When P calls wait(C) before C exits, it downs a semaphore contained in the
+child_info struct. When C exits, it stores its exit code in the struct and ups
+the semaphore. The parent then retrieves the exit code, removes the struct from
+the list, and frees the struct from memory.
+
+When P calls wait(C) after C exits, it downs the semaphore in the child_info
+struct without having to wait. It can then retrieve the exit code, removing and
+freeing the struct as before.
+
+When P terminates without waiting before C exits, it iterates through its list
+of child_info struct, and sets the flag in each of them to indicate that their
+parent has terminated. Then, when C exits, it checks the flag noting that the
+parent has terminated, and frees the struct.
+
+When P terminates without waiting after C exits, C will have set the flag in
+its child_info to indicate that it has died. Then, when P exits it iterates
+through its list of child_info structs and frees each struct that has the
+flag set to say its child has died.
 
 ---- RATIONALE ----
 
 >> B9: (5 marks)
->> Why did you choose to implement safe access of user memory from the kernel in 
+>> Why did you choose to implement safe access of user memory from the kernel in
 >> the way that you did?
 
 >> B10: (5 marks)
->> What advantages or disadvantages can you see to your design for file 
+>> What advantages or disadvantages can you see to your design for file
 >> descriptors?
-Advantages: 
-Makes cleaning memory easy, simply iterating through the files owned by the
-process.
-Allows for a lot more file descriptors to be used globally, and only limiting
-within a process, with a more than reasonable limit of 128 file descriptors.
-Scalable, binding fd 2 to stderr only requires stderr support by write and a
-simple change of next_fd initialisation.
-Disadvantages:
-File descriptors are not transferable.
-Occupies a lot of memory within the thread struct.
 
 >> B11: (2 marks)
->> The default tid_t to pid_t mapping is the identity mapping. Did you change 
+>> The default tid_t to pid_t mapping is the identity mapping. Did you change
 >> this? Why?
+
+No. The default mapping is simple and the pid of the current thread can easily
+be obtained through thread_current ()->tid. There needs to be a bijection
