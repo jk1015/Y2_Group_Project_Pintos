@@ -241,7 +241,7 @@ sys_read (const void* stack)
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
   uint8_t *buffer = *((uint8_t **) convert_user_pointer(stack, 2, 0));
 
-  uint8_t ret_size;
+  uint32_t ret_size;
 
   if (fd == 1)
     return -1;
@@ -270,7 +270,9 @@ sys_read (const void* stack)
 static int32_t
 sys_create (const void* stack)
 {
-  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+  char *file_name = *((char **) convert_user_pointer(stack, 1, 0));
+  if (file_name == 0)
+    return false;
   int size = *((int *) convert_user_pointer(stack, 2, 0));
   if (size < 0) // size must be unsigned
     return false;
