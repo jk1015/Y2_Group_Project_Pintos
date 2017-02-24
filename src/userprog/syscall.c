@@ -134,7 +134,7 @@ convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
   uaddr = (uint32_t *) uaddr + offset;
   if (is_user_vaddr (uaddr))
   {
-    
+
     if (size <= 0 || is_user_vaddr(((char *) uaddr) + size))
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
@@ -204,7 +204,7 @@ sys_write (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  void *buffer  = *((void **) convert_user_pointer(stack, 2, size));
+  void *buffer  = *((void **) convert_user_pointer(stack, 2, 0));
 
   if(!is_user_vaddr(buffer) ||
      pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
@@ -254,7 +254,9 @@ sys_read (const void* stack)
   char *buffer = (char*) vbuffer;
   uint32_t ret_size;
 
-
+  if(!is_user_vaddr(buffer) ||
+     pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
+    thread_exit ();
 
   if (fd == 1)
     return -1;
