@@ -144,9 +144,7 @@ convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
       if (ptr != NULL)
-      {
         return ptr;
-      }
     }
   }
 
@@ -178,6 +176,9 @@ sys_exec (const void* stack)
 {
   char* cmd_line = *((char **) convert_user_pointer(stack, 1, 0));
 
+  if(pagedir_get_page(thread_current ()->pagedir, cmd_line) == NULL )
+    thread_exit ();
+
   if(cmd_line == NULL)
     thread_exit ();
 
@@ -204,7 +205,9 @@ sys_write (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  void *buffer = *((void **) convert_user_pointer(stack, 2, 0));
+  void *buffer  = *((void **) convert_user_pointer(stack, 2, 0));
+  if(pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
+    thread_exit ();
 
   uint32_t ret_size;
 
@@ -250,6 +253,9 @@ sys_read (const void* stack)
 
   uint32_t ret_size;
 
+  if(pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
+    thread_exit ();
+
   if (fd == 1)
     return -1;
 
@@ -280,6 +286,9 @@ sys_create (const void* stack)
 
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
 
+  if(pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
+
   if(file_name == NULL)
     thread_exit ();
 
@@ -298,6 +307,9 @@ sys_remove (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
 
+  if(pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
+
   if(file_name == NULL)
     thread_exit ();
 
@@ -313,6 +325,9 @@ sys_open (const void* stack)
 {
   int fd;
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
 
   if(file_name == NULL)
     thread_exit ();
