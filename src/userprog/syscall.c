@@ -145,9 +145,12 @@ convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
       if (ptr != NULL)
+      {
         return ptr;
+      }
     }
   }
+
   //throw_invalid_memory_access ();
   thread_exit ();
   NOT_REACHED ();
@@ -175,7 +178,12 @@ static int32_t
 sys_exec (const void* stack)
 {
   char* cmd_line = *((char **) convert_user_pointer(stack, 1, 0));
+
+  if(file_name == NULL)
+    thread_exit ();
+
   check_user_pointer(stack, 1, strlen(cmd_line));
+
 
   tid_t tid = process_execute (cmd_line);
 
@@ -271,7 +279,12 @@ sys_read (const void* stack)
 static int32_t
 sys_create (const void* stack)
 {
+
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(file_name == NULL)
+    thread_exit ();
+
   int size = *((int *) convert_user_pointer(stack, 2, 0));
   if (size < 0) // size must be unsigned
     return false;
@@ -286,6 +299,10 @@ static int32_t
 sys_remove (const void* stack)
 {
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(file_name == NULL)
+    thread_exit ();
+
   lock_acquire(&filesys_lock);
   bool answer = filesys_remove(file_name);
   lock_release(&filesys_lock);
@@ -298,6 +315,10 @@ sys_open (const void* stack)
 {
   int fd;
   const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(file_name == NULL)
+    thread_exit ();
+
   lock_acquire(&filesys_lock);
   struct file *answer = filesys_open(file_name);
   if(answer == 0)
