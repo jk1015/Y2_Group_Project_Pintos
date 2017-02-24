@@ -5,6 +5,11 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#ifdef USERPROG
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "userprog/syscall.h"
+#endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -105,6 +110,9 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    int next_fd;                        /* The next fd that can be opened */
+    struct file *references[MAX_FILES_OPENED]; 
+    /* references is a lost of all the files opened by the current process*/
     struct file *source;                /* File containing the executable */
     struct list children;               /* List of child_info of each child. */
     struct child_info* exit_info;       /* Pointer to the parent's child_info

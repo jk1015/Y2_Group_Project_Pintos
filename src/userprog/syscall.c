@@ -11,7 +11,6 @@
 #include "devices/input.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
-#include "userprog/file_descriptor.h"
 
 
 
@@ -40,8 +39,7 @@ static int32_t sys_tell (const void* stack);
 static int32_t sys_close (const void* stack);
 
 static int SYSCALL_AMOUNT;
-static int next_fd;
-
+struct lock filesys_lock;
 
 /* A syscall. */
 struct syscall
@@ -68,13 +66,10 @@ static const struct syscall syscalls[] =
   {SYS_CLOSE, sys_close}
 };
 
-static struct fd_reference references[MAX_FILES_OPENED];
-
 void
 syscall_init (void)
 {
   SYSCALL_AMOUNT = (uint32_t) sizeof(syscalls)/sizeof(syscalls[0]);
-  next_fd = 2; // 0 and 1 are reserved for stdin and stdout
   lock_init(&filesys_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
@@ -97,9 +92,8 @@ syscall_handler (struct intr_frame *f)
 static int
 get_new_fd (struct file *reference)
 {
-  int fd = next_fd++;
-  references[fd].reference = reference;
-  references[fd].pid = thread_tid();
+  int fd = thread_current()->next_fd++;
+  thread_current()->references[fd] = reference;
   return fd;
 }
 
@@ -109,8 +103,8 @@ get_new_fd (struct file *reference)
 static struct file*
 check_fd (int fd)
 {
-  if ((fd < next_fd) && (fd > 1) && (references[fd].pid == thread_tid()))
-    return references[fd].reference;
+  if ((fd < thread_current()->next_fd) && (fd > 1))
+    return thread_current()->references[fd];
   return 0;
 }
 
@@ -392,12 +386,18 @@ static int32_t
 sys_close (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  return close_file_aux(fd);
+}
+
+int
+close_file_aux(int fd)
+{
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;
   lock_acquire(&filesys_lock);
   file_close(reference);
-  references[fd].reference = 0; // mark the fd as closed
+  thread_current()->references[fd] = 0; // mark the fd as closed
   lock_release(&filesys_lock);
   return 0;
 }
