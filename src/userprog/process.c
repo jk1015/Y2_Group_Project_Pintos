@@ -104,10 +104,8 @@ start_process (void *arguments)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  if (!success) {
-    lock_acquire(&filesys_lock);
-    file_allow_write(thread_current()->source);
-    lock_release(&filesys_lock);
+  if (!success)
+  {
     sema_up(&exit_info->load_sema);
     palloc_free_page (args);
     thread_exit ();
@@ -235,9 +233,13 @@ process_exit (void)
 {
   //TODO: Release locks and mallocs etc.
   struct thread *cur = thread_current ();
-  lock_acquire(&filesys_lock);
-  file_allow_write(thread_current()->source);
-  lock_release(&filesys_lock);
+
+  if (cur->source != NULL)
+  {
+    lock_acquire(&filesys_lock);
+    file_allow_write(cur->source);
+    lock_release(&filesys_lock);
+  }
 
   struct child_info *exit_info = cur->exit_info;
   uint32_t *pd;
