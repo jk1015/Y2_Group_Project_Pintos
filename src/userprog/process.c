@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -104,6 +105,9 @@ start_process (void *arguments)
 
   /* If load failed, quit. */
   if (!success) {
+    lock_acquire(&filesys_lock);
+    file_allow_write(thread_current()->source);
+    lock_release(&filesys_lock);
     sema_up(&exit_info->load_sema);
     palloc_free_page (args);
     thread_exit ();
@@ -231,6 +235,9 @@ process_exit (void)
 {
   //TODO: Release locks and mallocs etc.
   struct thread *cur = thread_current ();
+  lock_acquire(&filesys_lock);
+  file_allow_write(thread_current()->source);
+  lock_release(&filesys_lock);
 
   struct child_info *exit_info = cur->exit_info;
   uint32_t *pd;
@@ -378,12 +385,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire(&filesys_lock);
   file = filesys_open (file_name);
+  lock_release(&filesys_lock);
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
       goto done;
     }
+  lock_acquire(&filesys_lock);
+  file_deny_write (file);
+  lock_release(&filesys_lock);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -468,7 +480,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  thread_current()->source = file;
   return success;
 }
 

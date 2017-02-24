@@ -41,7 +41,6 @@ static int32_t sys_close (const void* stack);
 
 static int SYSCALL_AMOUNT;
 static int next_fd;
-struct lock filesys_lock;
 
 
 /* A syscall. */
@@ -250,7 +249,7 @@ sys_read (const void* stack)
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
   uint8_t *buffer = *((uint8_t **) convert_user_pointer(stack, 2, 0));
 
-  uint8_t ret_size;
+  uint32_t ret_size;
 
   if (fd == 1)
     return -1;
