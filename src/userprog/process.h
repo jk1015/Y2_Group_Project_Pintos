@@ -16,7 +16,7 @@ struct child_info
     tid_t pid;
     struct list_elem elem;
     struct semaphore sema;
-    bool is_parent_dead;
+    bool is_other_dead;
     struct semaphore load_sema;
     bool load_success;
     int exit_code;
