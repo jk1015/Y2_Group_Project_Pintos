@@ -362,6 +362,7 @@ sys_close (const void* stack)
     return -1;
   lock_acquire(&filesys_lock);
   file_close(reference);
+  references[fd].reference = 0; // mark the fd as closed
   lock_release(&filesys_lock);
   return 0;
 }
