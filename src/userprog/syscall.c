@@ -179,7 +179,7 @@ sys_exec (const void* stack)
 {
   char* cmd_line = *((char **) convert_user_pointer(stack, 1, 0));
 
-  if(file_name == NULL)
+  if(cmd_line == NULL)
     thread_exit ();
 
   check_user_pointer(stack, 1, strlen(cmd_line));
