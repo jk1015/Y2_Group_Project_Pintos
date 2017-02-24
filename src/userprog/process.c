@@ -53,7 +53,9 @@ process_execute (const char *file_name)
     PANIC ("Out of memory!");
   list_push_back (&thread_current ()->children, &exit_info->elem);
   sema_init(&exit_info->sema, 0);
+  sema_init(&exit_info->load_sema, 0);
   exit_info->exit_code = -1;
+  exit_info->load_success = false;
   exit_info->is_parent_dead = false;
   void *args[2] = {exit_info, fn_copy};
 
@@ -67,8 +69,14 @@ process_execute (const char *file_name)
   }
   else
   {
+    sema_down(&exit_info->load_sema);
+
+    if (!exit_info->load_success)
+      tid = TID_ERROR;
+
     exit_info->pid = tid;
   }
+
   return tid;
 }
 
@@ -96,8 +104,14 @@ start_process (void *arguments)
 
   /* If load failed, quit. */
   if (!success) {
+    sema_up(&exit_info->load_sema);
     palloc_free_page (args);
     thread_exit ();
+  }
+  else
+  {
+    exit_info->load_success = true;
+    sema_up(&exit_info->load_sema);
   }
 
   /* Tokenize the string */

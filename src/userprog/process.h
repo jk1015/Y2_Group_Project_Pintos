@@ -13,10 +13,12 @@ void process_activate (void);
    has exited, otherwise sema will be at zero. */
 struct child_info
   {
-    bool is_parent_dead;
     tid_t pid;
     struct list_elem elem;
     struct semaphore sema;
+    bool is_parent_dead;
+    struct semaphore load_sema;
+    bool load_success;
     int exit_code;
   };
 

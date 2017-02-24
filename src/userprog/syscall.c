@@ -178,6 +178,7 @@ sys_exec (const void* stack)
   check_user_pointer(stack, 1, strlen(cmd_line));
 
   tid_t tid = process_execute (cmd_line);
+
   if (tid != TID_ERROR)
     return tid;
 
