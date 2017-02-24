@@ -73,6 +73,17 @@ pointer, allowing each thread to pass its own pointer to the function.
 >> arguments. In Unix-like systems, the shell does this separation. Identify
 >> at least two advantages of the Unix approach.
 
+The kernel has a number of size limits that the shell doesn't have. The kernel
+has to fit all the arguments on a single page, putting a maximum size on the
+number of arguments.
+
+The Unix shell has a number of interesting tools that can be used through the
+command line such as the ability to piping. This allows you to run a number of
+commands in sequence and pass their outputs to each other, giving modularity
+between programs. You can pipe directly into a file instead of having to build
+file writing into the program. This gives programs modularity that can not be
+achieved through the kernel.
+
     SYSTEM CALLS
     ============
 
