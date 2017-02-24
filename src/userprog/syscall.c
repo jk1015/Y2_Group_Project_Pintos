@@ -41,7 +41,6 @@ static int32_t sys_close (const void* stack);
 
 static int SYSCALL_AMOUNT;
 static int next_fd;
-struct lock filesys_lock;
 
 
 /* A syscall. */
