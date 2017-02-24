@@ -8,9 +8,10 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+James Knight        <jk1015@ic.ac.uk>
+Max Smith           <mws15@ic.ac.uk>
+Inusha Hapuarachchi <ih1115@ic.ac.uk>
+Paul Crestez        <pmc15@ic.ac.uk>
 
 ---- PRELIMINARIES ----
 
@@ -58,9 +59,38 @@ FirstName LastName <email@domain.example>
 >> global or static variable, `typedef', or enumeration. Identify the purpose of 
 >> each in 25 words or less.
 
+// thread
+/* Thread structure was expanded with */
+struct file *source;
+/* Which keeps the executable open until process terminates. */
+
+// File management
+struct fd_reference
+{
+  struct file* reference;
+  tid_t pid;
+} /* binds a file handler to a process. */
+
+static int next_fd; 
+/* Used for generating unique fd. Initialised to 2.
+   Allows extensions, such as reserving fd = 2 for stderr and initialise
+   next_fd to 3 instead. */
+
+struct lock filesys_lock; /* Used for syncronising file access. */
+
+#define MAX_FILES_OPENED 100 /* Max number of files that can be opened. */
+
+static struct fd_reference references[MAX_FILES_OPENED];
+/* Stores information about each file descriptor. */
+
 >> B2: (5 marks)
 >> Describe how you associate file descriptors with open files. Are your file 
 >> descriptors unique within the entire OS or just within a single process?
+
+The association is a simple map contained within references[], where
+references[fd] holds the file information and process id for fd file descriptor.
+File descriptors are unique within the entire OS, but each one of them
+is bound to one process.
 
 ---- ALGORITHMS ----
 
