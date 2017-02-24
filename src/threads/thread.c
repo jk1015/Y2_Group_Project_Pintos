@@ -517,6 +517,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->nice = NICE_DEFAULT;
   t->recent_cpu = convert_int_to_fp (0);
   #ifdef USERPROG
+    t->next_fd = 2;
     list_init (&t->children);
     t->exit_info = NULL;
   #endif
