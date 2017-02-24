@@ -102,7 +102,7 @@ get_new_fd (struct file *reference)
   return fd;
 }
 
-/* check_fd verifies that fd exists and that the process calling 
+/* check_fd verifies that fd exists and that the process calling
    can access it. If it can, return the file structure for further use. */
 
 static struct file*
@@ -139,7 +139,7 @@ convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
   uaddr = (uint32_t *) uaddr + offset;
   if (is_user_vaddr (uaddr))
   {
-    if (size <= 0 || is_user_vaddr((char *) uaddr + size - 1))
+    if (size <= 0 || is_user_vaddr(((char *) uaddr) + size - 4))
     {
       void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
       if (ptr != NULL)
@@ -195,7 +195,7 @@ sys_write (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  void *buffer = *((void **) convert_user_pointer(stack, 2, size));
+  void *buffer = *((void **) convert_user_pointer(stack, 2, 0));
 
   uint32_t ret_size;
 
@@ -237,7 +237,7 @@ sys_read (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  uint8_t *buffer = *((uint8_t **) convert_user_pointer(stack, 2, size));
+  uint8_t *buffer = *((uint8_t **) convert_user_pointer(stack, 2, 0));
 
   uint8_t ret_size;
 
