@@ -11,6 +11,7 @@
 #include "devices/input.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "userprog/file_descriptor.h"
 
 
 
@@ -68,7 +69,7 @@ static const struct syscall syscalls[] =
   {SYS_CLOSE, sys_close}
 };
 
-static struct file* references[MAX_FILES_OPENED];
+static struct fd_reference references[MAX_FILES_OPENED];
 
 void
 syscall_init (void)
@@ -98,7 +99,8 @@ static int
 get_new_fd (struct file *reference)
 {
   int fd = next_fd++;
-  references[fd] = reference;
+  references[fd].reference = reference;
+  references[fd].pid = thread_tid();
   return fd;
 }
 
@@ -108,8 +110,8 @@ get_new_fd (struct file *reference)
 static struct file*
 check_fd (int fd)
 {
-  if ((fd < next_fd) && (fd > 1) && (references[fd]))
-    return references[fd];
+  if ((fd < next_fd) && (fd > 1) && (references[fd].pid == thread_tid()))
+    return references[fd].reference;
   return 0;
 }
 
