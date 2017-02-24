@@ -371,6 +371,12 @@ static int32_t
 sys_close (const void* stack)
 {
   int fd = *((int *) convert_user_pointer(stack, 1, 0));
+  return close_file_aux(fd);
+}
+
+int
+close_file_aux(int fd)
+{
   struct file *reference = check_fd(fd);
   if(reference == 0)
     return -1;

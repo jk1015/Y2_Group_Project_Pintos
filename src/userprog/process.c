@@ -240,6 +240,10 @@ process_exit (void)
     file_allow_write(cur->source);
     lock_release(&filesys_lock);
   }
+  for(int i = 2; i <= cur->next_fd; i++)
+  {
+    close_file_aux(i);
+  }
 
   struct child_info *exit_info = cur->exit_info;
   uint32_t *pd;
