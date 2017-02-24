@@ -59,26 +59,20 @@ Paul Crestez        <pmc15@ic.ac.uk>
 >> global or static variable, `typedef', or enumeration. Identify the purpose of 
 >> each in 25 words or less.
 
-// thread
+// threads/thread.h
 /* Thread structure was expanded with */
 struct file *source;
 /* Which keeps the executable open until process terminates. */
-
-// File management
-struct fd_reference
-{
-  struct file* reference;
-  tid_t pid;
-} /* binds a file handler to a process. */
-
-static int next_fd; 
+int next_fd;
 /* Used for generating unique fd. Initialised to 2.
    Allows extensions, such as reserving fd = 2 for stderr and initialise
    next_fd to 3 instead. */
+struct file *references[MAX_FILES_OPENED];
+/* Stores the handler of each file descriptor. */
 
+// userprog/syscall.h
 struct lock filesys_lock; /* Used for syncronising file access. */
-
-#define MAX_FILES_OPENED 100 /* Max number of files that can be opened. */
+#define MAX_FILES_OPENED 128 /* Max number of files that can be opened. */
 
 static struct fd_reference references[MAX_FILES_OPENED];
 /* Stores information about each file descriptor. */
@@ -87,10 +81,9 @@ static struct fd_reference references[MAX_FILES_OPENED];
 >> Describe how you associate file descriptors with open files. Are your file 
 >> descriptors unique within the entire OS or just within a single process?
 
-The association is a simple map contained within references[], where
-references[fd] holds the file information and process id for fd file descriptor.
-File descriptors are unique within the entire OS, but each one of them
-is bound to one process.
+Each thread holds a map where file descriptors are indexes and the value are
+file handler references. File descriptors are unique for the current process,
+but they can repeat within the operating system.
 
 ---- ALGORITHMS ----
 
@@ -147,6 +140,16 @@ is bound to one process.
 >> B10: (5 marks)
 >> What advantages or disadvantages can you see to your design for file 
 >> descriptors?
+Advantages: 
+Makes cleaning memory easy, simply iterating through the files owned by the
+process.
+Allows for a lot more file descriptors to be used globally, and only limiting
+within a process, with a more than reasonable limit of 128 file descriptors.
+Scalable, binding fd 2 to stderr only requires stderr support by write and a
+simple change of next_fd initialisation.
+Disadvantages:
+File descriptors are not transferable.
+Occupies a lot of memory within the thread struct.
 
 >> B11: (2 marks)
 >> The default tid_t to pid_t mapping is the identity mapping. Did you change 
