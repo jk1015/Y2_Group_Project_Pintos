@@ -33,9 +33,9 @@ static bool
 page_less_func (
   const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
-  const struct page_table_elem *page_a =
+  struct page_table_elem *page_a =
     hash_entry (a, struct page_table_elem, hash_elem);
-  const struct page_table_elem *page_b =
+  struct page_table_elem *page_b =
     hash_entry (b, struct page_table_elem, hash_elem);
   return (unsigned) page_a->page_no < (unsigned) page_b->page_no;
 }
@@ -44,4 +44,10 @@ static unsigned
 page_hash_func (const struct hash_elem *e, void *aux UNUSED)
 {
   return (unsigned) hash_entry (e, struct page_table_elem, hash_elem)->page_no;
+}
+
+void
+page_destroy_sup_table_elem (struct hash_elem *e, void *aux UNUSED)
+{
+  free(hash_entry (e, struct page_table_elem, hash_elem));
 }

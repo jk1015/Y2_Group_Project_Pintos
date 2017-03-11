@@ -288,7 +288,7 @@ process_exit (void)
       pagedir_destroy (pd);
     }
 
-  hash_destroy(&cur->sup_table, NULL);
+  hash_destroy(&cur->sup_table, &page_destroy_sup_table_elem);
 }
 
 /* Sets up the CPU for running user code in the current
