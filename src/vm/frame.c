@@ -1,4 +1,6 @@
 #include "vm/frame.h"
+#include "threads/palloc.h"
+#include "threads/malloc.h"
 
 static bool frame_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 static unsigned frame_hash_func (const struct hash_elem *e, void *aux UNUSED);
@@ -43,7 +45,7 @@ frame_allocate(bool fill)
 
   struct frame* frame = malloc(sizeof(struct frame));
   frame->kaddr = page;
-  success = hash_insert(&frame_table, &frame->hash_elem);
+  void* success = hash_insert(&frame_table, &frame->hash_elem);
   ASSERT (success == NULL);
 
   return page;

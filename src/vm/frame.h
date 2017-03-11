@@ -6,7 +6,7 @@
 #include "devices/shutdown.h"
 
 void frame_table_init (void);
-void* frame_allocate(enum frame_flags);
+void* frame_allocate(bool fill);
 
 struct frame
 {
