@@ -134,35 +134,21 @@ convert_user_pointer (const void *uaddr, uint32_t offset, uint32_t size)
   uaddr = (uint32_t *) uaddr + offset;
   if (is_user_vaddr (uaddr))
   {
-    void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
-    if (ptr != NULL)
+
+    if (size <= 0 || is_user_vaddr(((char *) uaddr) + size))
     {
-      if (size <= 0)
+      void* ptr = pagedir_get_page (thread_current()->pagedir, uaddr);
+      if (ptr != NULL)
       {
-        char * buffer = *((char **) ptr);
-        if (is_user_vaddr(buffer)
-            && is_user_vaddr(buffer + size))
           return ptr;
       }
-      else
-      {
-        return ptr;
-      }
+
     }
   }
 
   //throw_invalid_memory_access ();
   thread_exit ();
   NOT_REACHED ();
-}
-
-static char *
-convert_user_string(const void *uaddr, uint32_t offset)
-{
-  const char *str = *((const char **) convert_user_pointer(uaddr, offset, 0));
-  if(strlen(str) == 0)
-    return NULL;
-  return convert_user_pointer(uaddr, offset, strlen(str));
 }
 
 static int32_t
@@ -186,7 +172,11 @@ sys_exit (const void* stack)
 static int32_t
 sys_exec (const void* stack)
 {
-  char* cmd_line = convert_user_string(stack, 1);
+  char* cmd_line = *((char **) convert_user_pointer(stack, 1, 0));
+
+  if(!is_user_vaddr(cmd_line) ||
+     pagedir_get_page(thread_current ()->pagedir, cmd_line) == NULL )
+    thread_exit ();
 
   if(cmd_line == NULL)
     thread_exit ();
@@ -214,7 +204,11 @@ sys_write (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  void *buffer  = *((void **) convert_user_pointer(stack, 2, size));
+  void *buffer  = *((void **) convert_user_pointer(stack, 2, 0));
+
+  if(!is_user_vaddr(buffer) ||
+     pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
+    thread_exit ();
 
   uint32_t ret_size;
 
@@ -256,9 +250,13 @@ sys_read (const void* stack)
 {
   int32_t fd    = *((uint32_t *) convert_user_pointer(stack, 1, 0));
   uint32_t size = *((uint32_t *) convert_user_pointer(stack, 3, 0));
-  void *vbuffer = *((void **) convert_user_pointer(stack, 2, size));
+  void *vbuffer = *((void **) convert_user_pointer(stack, 2, 0));
   char *buffer = (char*) vbuffer;
   uint32_t ret_size;
+
+  if(!is_user_vaddr(buffer) ||
+     pagedir_get_page(thread_current ()->pagedir, buffer) == NULL )
+    thread_exit ();
 
   if (fd == 1)
     return -1;
@@ -288,7 +286,11 @@ static int32_t
 sys_create (const void* stack)
 {
 
-  const char *file_name = convert_user_string(stack, 1);
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(!is_user_vaddr(file_name) ||
+     pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
 
   if(file_name == NULL)
     thread_exit ();
@@ -306,7 +308,11 @@ sys_create (const void* stack)
 static int32_t
 sys_remove (const void* stack)
 {
-  const char *file_name = convert_user_string(stack, 1);
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(!is_user_vaddr(file_name) ||
+     pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
 
   if(file_name == NULL)
     thread_exit ();
@@ -322,7 +328,11 @@ static int32_t
 sys_open (const void* stack)
 {
   int fd;
-  const char *file_name = convert_user_string(stack, 1);
+  const char *file_name = *((const char **) convert_user_pointer(stack, 1, 0));
+
+  if(!is_user_vaddr(file_name) ||
+     pagedir_get_page(thread_current ()->pagedir, file_name) == NULL )
+    thread_exit ();
 
   if(file_name == NULL)
     thread_exit ();
