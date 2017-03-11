@@ -15,7 +15,7 @@ page_create_sup_table_elem (void* page_location)
   struct page_table_elem* elem = malloc(sizeof(struct page_table_elem));
   if (elem == NULL)
     PANIC("Couldn't malloc: out of memory");
-  elem->page_no = ((uint32_t) page_location) >> 12;
+  elem->page_no = ((uint32_t) page_location);
   return elem;
 }
 
