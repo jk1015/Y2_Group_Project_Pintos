@@ -1,9 +1,6 @@
 #include "vm/page.h"
 #include "threads/thread.h"
 
-struct hash
-page_create_sup_table (void);
-
 static bool
 page_less_func (
   const struct hash_elem *a, const struct hash_elem *b, void *aux);

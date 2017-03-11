@@ -9,6 +9,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "userprog/syscall.h"
+#include "lib/kernel/hash.h"
 #endif
 
 /* States in a thread's life cycle. */
@@ -111,12 +112,13 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     int next_fd;                        /* The next fd that can be opened */
-    struct file *references[MAX_FILES_OPENED]; 
+    struct file *references[MAX_FILES_OPENED];
     /* references is a lost of all the files opened by the current process*/
     struct file *source;                /* File containing the executable */
     struct list children;               /* List of child_info of each child. */
     struct child_info* exit_info;       /* Pointer to the parent's child_info
                                            for this thread. */
+    struct hash sup_table;              /* Supplementary page table */
 #endif
 
     /* Owned by thread.c. */

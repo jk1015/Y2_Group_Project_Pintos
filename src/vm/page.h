@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include <hash.h>
 
+struct hash
+page_create_sup_table (void);
+
 struct page_table_elem
 {
   uint32_t page_no; // Page number

@@ -20,6 +20,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "vm/frame.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -90,6 +91,8 @@ start_process (void *arguments)
   struct child_info* exit_info = ((void **) arguments)[0];
   char* args = ((void **) arguments)[1];
   thread_current ()->exit_info = exit_info;
+
+  thread_current ()->sup_table = page_create_sup_table ();
 
   uint32_t max_args = strlen(args) / 2 + 1;
   char *save_ptr;
@@ -284,6 +287,8 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  hash_destroy(&cur->sup_table, NULL);
 }
 
 /* Sets up the CPU for running user code in the current
