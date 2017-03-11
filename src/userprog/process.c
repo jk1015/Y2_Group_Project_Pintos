@@ -57,7 +57,7 @@ process_execute (const char *file_name)
   sema_init(&exit_info->load_sema, 0);
   exit_info->exit_code = -1;
   exit_info->load_success = false;
-  exit_info->is_other_dead = false;
+  exit_info->is_parent_dead = false;
   void *args[2] = {exit_info, fn_copy};
 
   /* Create a new thread to execute FILE_NAME. */
@@ -252,7 +252,7 @@ process_exit (void)
 
   if(exit_info != NULL)
   {
-    if (exit_info->is_other_dead)
+    if (exit_info->is_parent_dead)
       free (exit_info);
     else
       sema_up(&exit_info->sema);
@@ -265,10 +265,7 @@ process_exit (void)
        e = list_next (e))
     {
       struct child_info *info = list_entry (e, struct child_info, elem);
-      if (info->is_other_dead)
-        free (info);
-      else
-        info->is_other_dead = true;
+      info->is_parent_dead = true;
     }
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

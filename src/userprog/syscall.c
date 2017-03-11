@@ -160,7 +160,9 @@ static char *
 convert_user_string(const void *uaddr, uint32_t offset)
 {
   const char *str = *((const char **) convert_user_pointer(uaddr, offset, 0));
-  return *((char **) convert_user_pointer(uaddr, offset, strlen(str)));
+  if(strlen(str) == 0)
+    return NULL;
+  return convert_user_pointer(uaddr, offset, strlen(str));
 }
 
 static int32_t
@@ -188,6 +190,8 @@ sys_exec (const void* stack)
 
   if(cmd_line == NULL)
     thread_exit ();
+
+  check_user_pointer(stack, 1, strlen(cmd_line));
 
   tid_t tid = process_execute (cmd_line);
 
@@ -285,6 +289,7 @@ sys_create (const void* stack)
 {
 
   const char *file_name = convert_user_string(stack, 1);
+
   if(file_name == NULL)
     thread_exit ();
 
