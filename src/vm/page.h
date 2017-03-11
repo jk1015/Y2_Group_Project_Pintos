@@ -7,6 +7,9 @@
 struct hash
 page_create_sup_table (void);
 
+struct page_table_elem*
+page_create_sup_table_elem (void* page_location);
+
 struct page_table_elem
 {
   uint32_t page_no; // Page number

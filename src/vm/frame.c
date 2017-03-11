@@ -1,6 +1,8 @@
 #include "vm/frame.h"
+#include "vm/page.h"
 #include "threads/palloc.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 static bool frame_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 static unsigned frame_hash_func (const struct hash_elem *e, void *aux UNUSED);
@@ -44,8 +46,14 @@ frame_allocate(bool fill)
     PANIC("Out of Frames");
 
   struct frame* frame = malloc(sizeof(struct frame));
+  if (frame == NULL)
+    PANIC ("Couldn't malloc, out of memory");
   frame->kaddr = page;
   void* success = hash_insert(&frame_table, &frame->hash_elem);
+  ASSERT (success == NULL);
+
+  struct page_table_elem* sup_elem = page_create_sup_table_elem (page);
+  success = hash_insert(&(thread_current ()->sup_table), &sup_elem->hash_elem);
   ASSERT (success == NULL);
 
   return page;

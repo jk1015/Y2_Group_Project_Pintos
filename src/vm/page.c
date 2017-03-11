@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "threads/thread.h"
+#include "threads/malloc.h"
 
 static bool
 page_less_func (
@@ -7,6 +8,16 @@ page_less_func (
 
 static unsigned
 page_hash_func (const struct hash_elem *e, void *aux);
+
+struct page_table_elem*
+page_create_sup_table_elem (void* page_location)
+{
+  struct page_table_elem* elem = malloc(sizeof(struct page_table_elem));
+  if (elem == NULL)
+    PANIC("Couldn't malloc: out of memory");
+  elem->page_no = ((uint32_t) page_location) >> 12;
+  return elem;
+}
 
 struct hash
 page_create_sup_table ()
